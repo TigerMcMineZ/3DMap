@@ -1,0 +1,2404 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D Station Map - สถานีกลางกรุงเทพอภิวัฒน์ (Krung Thep Aphiwat Central Terminal)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #0f172a;
+      --panel-bg: rgba(15, 23, 42, 0.86);
+      --panel-border: rgba(148, 163, 184, 0.22);
+      --accent: #38bdf8;
+      --accent-gold: #facc15;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Prompt', sans-serif;
+      user-select: none;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #1e293b;
+      color: var(--text-main);
+    }
+
+    #canvas-container {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    #label-container {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 2;
+      overflow: hidden;
+    }
+
+    /* Top Header Bar */
+    .top-bar {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      z-index: 20;
+      pointer-events: none;
+    }
+
+    .brand-card {
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: var(--panel-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--panel-border);
+      padding: 10px 18px;
+      border-radius: 16px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+    }
+
+    .brand-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #0284c7, #1e3a8a);
+      border: 1.5px solid rgba(255, 255, 255, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      font-weight: 700;
+      color: #fff;
+      box-shadow: inset 0 2px 4px rgba(255,255,255,0.25);
+    }
+
+    .brand-text h1 {
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+      color: #fff;
+      line-height: 1.25;
+    }
+
+    .brand-text p {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    /* Mode Switcher Pills */
+    .mode-switcher {
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--panel-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--panel-border);
+      padding: 6px;
+      border-radius: 14px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+      flex-wrap: wrap;
+    }
+
+    .mode-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: #cbd5e1;
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 12.5px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .mode-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+    }
+
+    .mode-btn.active {
+      background: linear-gradient(135deg, #0284c7, #2563eb);
+      color: #fff;
+      border-color: rgba(125, 211, 252, 0.45);
+      box-shadow: 0 4px 12px rgba(2, 132, 199, 0.4);
+    }
+
+    /* Left Sidebar: Search, Categories, POI List */
+    .left-sidebar {
+      position: fixed;
+      top: 88px;
+      left: 16px;
+      bottom: 16px;
+      width: 330px;
+      background: var(--panel-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--panel-border);
+      border-radius: 18px;
+      display: flex;
+      flex-direction: column;
+      z-index: 20;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+      overflow: hidden;
+      transition: transform 0.3s ease;
+    }
+
+    .left-sidebar.collapsed {
+      transform: translateX(-350px);
+    }
+
+    .sidebar-toggle-btn {
+      position: fixed;
+      top: 96px;
+      left: 16px;
+      z-index: 19;
+      background: var(--panel-bg);
+      color: #fff;
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      padding: 8px 12px;
+      font-size: 12px;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    }
+
+    .left-sidebar.collapsed + .sidebar-toggle-btn {
+      display: flex;
+    }
+
+    .sidebar-header {
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid var(--panel-border);
+    }
+
+    .sidebar-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .sidebar-title-row h2 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #e2e8f0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .icon-btn {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #cbd5e1;
+      border-radius: 8px;
+      padding: 4px 8px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .icon-btn:hover {
+      background: rgba(255,255,255,0.16);
+      color: #fff;
+    }
+
+    .search-box {
+      position: relative;
+      margin-bottom: 10px;
+    }
+
+    .search-box input {
+      width: 100%;
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      color: #fff;
+      padding: 8px 12px 8px 34px;
+      border-radius: 10px;
+      font-size: 12.5px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .search-box input:focus {
+      border-color: var(--accent);
+    }
+
+    .search-box .search-icon {
+      position: absolute;
+      left: 11px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    /* Category Filter Chips */
+    .category-chips {
+      display: flex;
+      gap: 5px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      scrollbar-width: none;
+    }
+
+    .category-chips::-webkit-scrollbar {
+      display: none;
+    }
+
+    .chip {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #cbd5e1;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .chip:hover {
+      background: rgba(255, 255, 255, 0.14);
+    }
+
+    .chip.active {
+      background: var(--accent);
+      color: #0f172a;
+      font-weight: 600;
+      border-color: var(--accent);
+    }
+
+    /* POI List */
+    .poi-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .poi-list::-webkit-scrollbar {
+      width: 5px;
+    }
+    .poi-list::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.3);
+      border-radius: 4px;
+    }
+
+    .poi-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 11px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      cursor: pointer;
+      transition: all 0.18s ease;
+    }
+
+    .poi-item:hover {
+      background: rgba(56, 189, 248, 0.12);
+      border-color: rgba(56, 189, 248, 0.35);
+      transform: translateX(2px);
+    }
+
+    .poi-item.selected {
+      background: rgba(56, 189, 248, 0.22);
+      border-color: var(--accent);
+    }
+
+    .poi-badge {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 13px;
+      flex-shrink: 0;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    }
+
+    .poi-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .poi-info h4 {
+      font-size: 12.5px;
+      font-weight: 500;
+      color: #f1f5f9;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .poi-info p {
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Wayfinding Bar inside Left Sidebar Footer */
+    .wayfinding-box {
+      padding: 12px 14px;
+      background: rgba(2, 6, 23, 0.65);
+      border-top: 1px solid var(--panel-border);
+    }
+
+    .wayfinding-box h3 {
+      font-size: 12px;
+      font-weight: 600;
+      color: #38bdf8;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .route-selects {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .route-selects select {
+      width: 100%;
+      background: rgba(15, 23, 42, 0.9);
+      color: #f8fafc;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      border-radius: 8px;
+      padding: 5px 6px;
+      font-size: 11px;
+      outline: none;
+    }
+
+    .route-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .btn-primary {
+      flex: 1;
+      background: linear-gradient(135deg, #f59e0b, #ea580c);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .btn-primary:hover {
+      opacity: 0.92;
+    }
+
+    .btn-secondary {
+      background: rgba(255,255,255,0.1);
+      color: #cbd5e1;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 11.5px;
+      cursor: pointer;
+    }
+
+    /* Right Control Panel & Selected Info Card */
+    .right-panel {
+      position: fixed;
+      top: 88px;
+      right: 16px;
+      width: 310px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      z-index: 20;
+      pointer-events: none;
+    }
+
+    .control-card, .detail-card {
+      pointer-events: auto;
+      background: var(--panel-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--panel-border);
+      border-radius: 16px;
+      padding: 14px 16px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.38);
+    }
+
+    .control-card h3 {
+      font-size: 13px;
+      font-weight: 600;
+      color: #e2e8f0;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .slider-group {
+      margin-bottom: 10px;
+    }
+
+    .slider-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11.5px;
+      color: #cbd5e1;
+      margin-bottom: 4px;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+      height: 5px;
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #cbd5e1;
+      padding: 5px 0;
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .toggle-row input[type="checkbox"] {
+      accent-color: var(--accent);
+      width: 15px;
+      height: 15px;
+      cursor: pointer;
+    }
+
+    /* Detail Card when clicking a Pin */
+    .detail-card {
+      display: none;
+      animation: fadeIn 0.22s ease;
+      border-color: rgba(56, 189, 248, 0.45);
+    }
+
+    .detail-card.visible {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .detail-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .detail-badge {
+      width: 44px;
+      height: 44px;
+      border-radius: 11px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 17px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .detail-title {
+      flex: 1;
+    }
+
+    .detail-title h3 {
+      font-size: 15px;
+      font-weight: 600;
+      color: #fff;
+      line-height: 1.25;
+    }
+
+    .detail-title span {
+      font-size: 11.5px;
+      color: var(--accent);
+    }
+
+    .detail-close {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 18px;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .detail-desc {
+      font-size: 12px;
+      color: #cbd5e1;
+      line-height: 1.55;
+      margin-bottom: 12px;
+      background: rgba(255,255,255,0.04);
+      padding: 9px 11px;
+      border-radius: 10px;
+    }
+
+    .detail-meta {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .detail-meta span {
+      background: rgba(255,255,255,0.06);
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+
+    /* 3D CSS2D Floating Pins */
+    .poi-pin-wrap {
+      pointer-events: auto;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s;
+    }
+
+    .poi-pin-wrap:hover {
+      transform: scale(1.22) translateY(-4px);
+      z-index: 100 !important;
+    }
+
+    .poi-pin-wrap.active-pin {
+      transform: scale(1.3) translateY(-6px);
+      z-index: 110 !important;
+    }
+
+    .pin-bubble {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 7px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.55);
+      border: 1.5px solid rgba(255, 255, 255, 0.75);
+      white-space: nowrap;
+      backdrop-filter: blur(4px);
+    }
+
+    .poi-pin-wrap.active-pin .pin-bubble {
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.8), 0 6px 16px rgba(0,0,0,0.7);
+    }
+
+    .pin-stem {
+      width: 2px;
+      height: 10px;
+      background: rgba(255, 255, 255, 0.85);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    }
+
+    .pin-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #fff;
+      border: 1.5px solid #0f172a;
+    }
+
+    /* Layer Callout Banner (Like Image 3 "ภายนอกอาคาร" / "ผังพื้นที่ภายใน") */
+    .layer-callout {
+      background: rgba(30, 41, 59, 0.92);
+      color: #f8fafc;
+      border: 1.5px solid rgba(255, 255, 255, 0.5);
+      padding: 6px 16px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.45);
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    .zone-circle-label {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #0f172a;
+      color: #fff;
+      border: 2px solid #facc15;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+      cursor: pointer;
+      pointer-events: auto;
+    }
+
+    /* Bottom Legend / Help Bar */
+    .bottom-bar {
+      position: fixed;
+      bottom: 16px;
+      left: 360px;
+      right: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      pointer-events: none;
+      z-index: 15;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .legend-strip {
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--panel-bg);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--panel-border);
+      padding: 8px 14px;
+      border-radius: 12px;
+      font-size: 11.5px;
+      color: #cbd5e1;
+      flex-wrap: wrap;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+      display: inline-block;
+    }
+
+    .controls-hint {
+      pointer-events: auto;
+      background: var(--panel-bg);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--panel-border);
+      padding: 8px 14px;
+      border-radius: 12px;
+      font-size: 11.5px;
+      color: var(--text-muted);
+    }
+
+    /* Reference Modal */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.82);
+      backdrop-filter: blur(8px);
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal-content {
+      background: #0f172a;
+      border: 1px solid var(--panel-border);
+      border-radius: 20px;
+      max-width: 1100px;
+      width: 100%;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.65);
+    }
+
+    .modal-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--panel-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .modal-header h2 {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .modal-body {
+      padding: 20px;
+      overflow-y: auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+      gap: 16px;
+    }
+
+    .ref-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .ref-card img {
+      width: 100%;
+      height: 260px;
+      object-fit: contain;
+      background: #020617;
+      display: block;
+    }
+
+    .ref-card p {
+      padding: 10px 14px;
+      font-size: 12.5px;
+      color: #cbd5e1;
+    }
+
+    @media (max-width: 960px) {
+      .left-sidebar {
+        width: 280px;
+      }
+      .bottom-bar {
+        left: 16px;
+      }
+      .right-panel {
+        top: auto;
+        bottom: 70px;
+        width: 280px;
+      }
+    }
+  </style>
+  <!-- Offline Base64 Texture for 2D Map Floor Overlay (works directly on file://) -->
+  <script src="assets/map_texture_data.js"></script>
+  <!-- Import Map for Three.js -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+
+  <!-- 3D WebGL Canvas & CSS2D Labels -->
+  <div id="canvas-container"></div>
+  <div id="label-container"></div>
+
+  <!-- Top Navigation & View Modes -->
+  <header class="top-bar">
+    <div class="brand-card">
+      <div class="brand-icon">i</div>
+      <div class="brand-text">
+        <h1>แผนผังสถานี 3D — สถานีกลางกรุงเทพอภิวัฒน์</h1>
+        <p>Krung Thep Aphiwat Central Terminal Station • Interactive 3D Map</p>
+      </div>
+    </div>
+
+    <div class="mode-switcher">
+      <button class="mode-btn active" data-mode="interior" title="มุมมอง 3D ผังพื้นที่ภายในสถานีและจุดบริการทั้งหมด">
+        <span>🗺️</span> มุมมอง 3D ผังภายใน (3D Floor Plan)
+      </button>
+      <button class="mode-btn" data-mode="top" title="มุมมองแปลนจากด้านบนตรงๆ เหมือนแผนผัง 2D">
+        <span>📐</span> มุมมองแปลนบน (Top Plan)
+      </button>
+      <button class="mode-btn" data-mode="west" title="ซูมดูโซนรถไฟฟ้าสายสีแดง และ MRT สายสีน้ำเงิน">
+        <span>🚆</span> โซนสายสีแดง & MRT
+      </button>
+      <button class="mode-btn" data-mode="east" title="ซูมดูโซนทางขึ้นรถไฟทางไกล B, E และจุดพักคอย">
+        <span>💺</span> โซนรถไฟทางไกล (B / E)
+      </button>
+      <button class="mode-btn" id="btn-open-ref" title="เปิดดูรูปแปลน 2D ต้นฉบับและภาพอ้างอิง">
+        <span>🖼️</span> ดูภาพแปลน 2D ต้นฉบับ
+      </button>
+    </div>
+  </header>
+
+  <!-- Left Sidebar: Search, Filter & Wayfinding -->
+  <aside class="left-sidebar" id="left-sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title-row">
+        <h2>📍 จุดสำคัญในสถานี (Station POIs)</h2>
+        <button class="icon-btn" id="btn-collapse-sidebar" title="ย่อแถบด้านซ้าย">◀ ย่อ</button>
+      </div>
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="poi-search" placeholder="ค้นหา ประตูทางออก, ห้องน้ำ, MRT, สายสีแดง..." />
+      </div>
+      <div class="category-chips" id="category-chips">
+        <button class="chip active" data-cat="all">ทั้งหมด</button>
+        <button class="chip" data-cat="exit">ประตูทางออก</button>
+        <button class="chip" data-cat="gate">ทางขึ้นรถไฟ / จุดนัดพบ</button>
+        <button class="chip" data-cat="transit">รถไฟฟ้า / รถเชื่อมต่อ</button>
+        <button class="chip" data-cat="service">ตั๋ว / ประชาสัมพันธ์</button>
+        <button class="chip" data-cat="facility">ห้องน้ำ / สิ่งอำนวยความสะดวก</button>
+        <button class="chip" data-cat="zone">โซนไฮไลท์ 1-4</button>
+      </div>
+    </div>
+
+    <div class="poi-list" id="poi-list"></div>
+
+    <!-- Interactive Wayfinding Simulator -->
+    <div class="wayfinding-box">
+      <h3>
+        <span>🧭 จำลองเส้นทางเดิน (Wayfinding)</span>
+        <span id="route-distance" style="color:#facc15;font-weight:500;"></span>
+      </h3>
+      <div class="route-selects">
+        <select id="route-from" title="จุดเริ่มต้น"></select>
+        <select id="route-to" title="จุดหมายปลายทาง"></select>
+      </div>
+      <div class="route-actions">
+        <button class="btn-primary" id="btn-draw-route">แสดงเส้นทางเดิน 3D</button>
+        <button class="btn-secondary" id="btn-clear-route">ล้าง</button>
+      </div>
+    </div>
+  </aside>
+  <button class="sidebar-toggle-btn" id="btn-expand-sidebar">▶ เปิดรายการจุดสำคัญ</button>
+
+  <!-- Right Controls & Selected POI Detail Card -->
+  <div class="right-panel">
+    <div class="control-card">
+      <h3>
+        <span>🎛️ ปรับแต่งการแสดงผลผัง 3D</span>
+        <button class="icon-btn" id="btn-reset-cam">รีเซ็ตมุมกล้อง</button>
+      </h3>
+
+      <div class="slider-group">
+        <div class="slider-label">
+          <span>ความสูงกำแพงและผนังกั้น (Wall Height)</span>
+          <span id="val-wall-height">100%</span>
+        </div>
+        <input type="range" id="slider-wall-height" min="20" max="150" step="5" value="100" />
+      </div>
+
+      <label class="toggle-row">
+        <span>แสดงหมุดป้ายชื่อ (3D Pins)</span>
+        <input type="checkbox" id="toggle-pins" checked />
+      </label>
+
+      <label class="toggle-row">
+        <span>วางภาพแปลนจริงทับบนพื้น (2D Map Texture)</span>
+        <input type="checkbox" id="toggle-map-overlay" />
+      </label>
+
+      <label class="toggle-row">
+        <span>จำลองรถยนต์จุดรับ-ส่งด้านหน้า</span>
+        <input type="checkbox" id="toggle-traffic" checked />
+      </label>
+    </div>
+
+    <!-- Selected POI Info Card -->
+    <div class="detail-card" id="detail-card">
+      <div class="detail-header">
+        <div class="detail-badge" id="detail-badge">1</div>
+        <div class="detail-title">
+          <h3 id="detail-name">ทางออก 1 (Exit 1)</h3>
+          <span id="detail-en">Main Front Entrance / Exit 1</span>
+        </div>
+        <button class="detail-close" id="detail-close" title="ปิด">✕</button>
+      </div>
+      <div class="detail-meta">
+        <span id="detail-cat">ประตูทางออก</span>
+        <span id="detail-zone">โซนโถงกลาง</span>
+      </div>
+      <div class="detail-desc" id="detail-desc">
+        ประตูทางออกหลักด้านหน้าอาคาร เชื่อมต่อโถงกลาง Веที และจุดรับ-ส่งผู้โดยสารด้านหน้าสถานี
+      </div>
+      <div class="route-actions">
+        <button class="btn-primary" id="btn-route-here">🚶 นำทางมายังจุดนี้</button>
+        <button class="btn-secondary" id="btn-focus-here">🔍 ซูมดูใกล้ๆ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Legend & Mouse Instructions -->
+  <footer class="bottom-bar">
+    <div class="legend-strip">
+      <div class="legend-item"><span class="legend-swatch" style="background:#facc15;"></span> ทางออก (Exit 1-13)</div>
+      <div class="legend-item"><span class="legend-swatch" style="background:#1d4ed8;"></span> ทางขึ้นรถไฟ (Gate B, E)</div>
+      <div class="legend-item"><span class="legend-swatch" style="background:#334155;border:1px solid #94a3b8;"></span> จุดนัดพบขาเข้า (D, G)</div>
+      <div class="legend-item"><span class="legend-swatch" style="background:#991b1b;"></span> รถไฟฟ้าสายสีแดง (SRT Red Line)</div>
+      <div class="legend-item"><span class="legend-swatch" style="background:#0284c7;"></span> MRT สายสีน้ำเงิน</div>
+      <div class="legend-item"><span class="legend-swatch" style="background:#f59e0b;"></span> โถงกลาง & เวที (โซน 1-4)</div>
+    </div>
+    <div class="controls-hint">
+      🖱️ คลิกซ้ายลาก: หมุนมุมมอง • คลิกขวาลาก: เลื่อนฉาก • ลูกกลิ้งเมาส์: ซูมเข้า-ออก • คลิกที่หมุดเพื่อดูข้อมูล
+    </div>
+  </footer>
+
+  <!-- Reference Images Modal -->
+  <div class="modal-backdrop" id="ref-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>🖼️ ภาพแปลนสถานี 2D และภาพจำลองอ้างอิงต้นฉบับ</h2>
+        <button class="icon-btn" id="btn-close-ref" style="font-size:14px;padding:6px 12px;">✕ ปิดหน้าต่าง</button>
+      </div>
+      <div class="modal-body">
+        <div class="ref-card">
+          <img src="assets/station_map_2d.jpg" alt="2D Station Map" />
+          <p><strong>1. แผนผังสถานี (Station Map 2D):</strong> แสดงตำแหน่งประตูทางออก 1, 2, 3, 4, 5, 10, 13, ทางขึ้นรถไฟ B/E, จุดนัดพบ D/G, รถไฟฟ้าสายสีแดง, MRT สายสีน้ำเงิน และห้องบริการต่างๆ</p>
+        </div>
+        <div class="ref-card">
+          <img src="assets/exploded_ref.jpg" alt="Exploded 3D Reference" />
+          <p><strong>2. ผังจำลอง 3D แยกชั้น (ภายนอกอาคาร & ผังพื้นที่ภายใน):</strong> ต้นแบบมุมมอง Exploded View แสดงหลังคาโค้งด้านบนและผังพื้นที่ภายใน โซน 1, 2, 3 (เวที), 4 ด้านล่าง</p>
+        </div>
+        <div class="ref-card">
+          <img src="assets/exterior_front.jpg" alt="Exterior Front View" />
+          <p><strong>3. มุมมองภายนอกด้านหน้า (ทิศตะวันออก):</strong> ซุ้มโค้งนาฬิกาประจำสถานี หลังคาช่องแสงสามเหลี่ยม 4 ช่อง และหลังคาทางเดินเชื่อมจุดรับ-ส่ง (ประตู 1-4)</p>
+        </div>
+        <div class="ref-card">
+          <img src="assets/exterior_side.jpg" alt="Exterior Side View" />
+          <p><strong>4. มุมมองภายนอกและรางรถไฟยกระดับ:</strong> ป้ายชื่อสถานีกลางกรุงเทพอภิวัฒน์ หลังคาโค้งลูกคลื่นสีเงิน และโครงสร้างรางรถไฟยกระดับ</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Three.js Application -->
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+    // ============================================================================
+    // 1. STATION POI DATA (Mapped accurately to the 2D Station Map & 3D Cutaway)
+    // ============================================================================
+    // Coordinate System:
+    // X: -115 (Left / South: Exit 13, MRT, SRT Red Line) to +115 (Right / North: Gates B/E, Exit 5, Lounge, Food Court)
+    // Z: -55 (Top / West: Exits 13, 10, 5, Bus Stop) to +55 (Bottom / East: Front Façade, Clock Arch, Exits 1, 2, 3, 4)
+    // Y: Vertical height (Floor = 0)
+
+    const STATION_POIS = [
+      // --- EXITS (ประตูทางออก 1, 2, 3, 4, 5, 10, 13) ---
+      {
+        id: 'exit-1',
+        code: '1',
+        name: 'ทางออก 1 (ประตู 1)',
+        en: 'Exit 1 — Main Front Concourse',
+        cat: 'exit',
+        catLabel: 'ประตูทางออก',
+        zone: 'โถงกลางด้านหน้า (ซุ้มนาฬิกา)',
+        x: -20, y: 4, z: 50,
+        bg: '#facc15', fg: '#0f172a',
+        desc: 'ประตูทางออกหลักด้านหน้าสถานี (ใต้ซุ้มโค้งนาฬิกา) เชื่อมต่อกับโถงกลาง (โซน 1), พื้นที่เวที (โซน 3) และทางเดินมีหลังคาไปยังจุดรับ-ส่งรถยนต์ด้านหน้า'
+      },
+      {
+        id: 'exit-2',
+        code: '2',
+        name: 'ทางออก 2 (ประตู 2)',
+        en: 'Exit 2 — Front Drop-off Canopy',
+        cat: 'exit',
+        catLabel: 'ประตูทางออก',
+        zone: 'ด้านหน้าอาคาร (ฝั่งกลาง-ขวา)',
+        x: 32, y: 4, z: 50,
+        bg: '#facc15', fg: '#0f172a',
+        desc: 'ประตูทางออกด้านหน้าอาคาร เชื่อมต่อทางเดินมีหลังคาไปยังจุดจอดรับ-ส่งผู้โดยสาร และใกล้ทางลงที่จอดรถใต้ดิน P1'
+      },
+      {
+        id: 'exit-3',
+        code: '3',
+        name: 'ทางออก 3 (ประตู 3)',
+        en: 'Exit 3 — Front East Wing',
+        cat: 'exit',
+        catLabel: 'ประตูทางออก',
+        zone: 'ด้านหน้าอาคาร (โซนรถไฟทางไกล)',
+        x: 64, y: 4, z: 50,
+        bg: '#facc15', fg: '#0f172a',
+        desc: 'ประตูทางออกด้านหน้าฝั่งโถงรถไฟทางไกล ใกล้ช่องจำหน่ายตั๋วรถไฟทางไกลและจุดรอขึ้นรถไฟ E'
+      },
+      {
+        id: 'exit-4',
+        code: '4',
+        name: 'ทางออก 4 (ประตู 4)',
+        en: 'Exit 4 — Front North-East Wing',
+        cat: 'exit',
+        catLabel: 'ประตูทางออก',
+        zone: 'ด้านหน้าอาคาร (ใกล้ศูนย์อาหาร)',
+        x: 92, y: 4, z: 50,
+        bg: '#facc15', fg: '#0f172a',
+        desc: 'ประตูทางออกด้านหน้าฝั่งขวาสุด ใกล้ศูนย์อาหาร (Food Court), จุดประชาสัมพันธ์, ห้องน้ำ และทางลงที่จอดรถ P2'
+      },
+      {
+        id: 'exit-5',
+        code: '5',
+        name: 'ทางออก 5 (ประตู 5)',
+        en: 'Exit 5 — Rear North-West Wing',
+        cat: 'exit',
+        catLabel: 'ประตูทางออก',
+        zone: 'ด้านหลังอาคาร (ใกล้ทางขึ้นรถไฟ B)',
+        x: 84, y: 4, z: -45,
+        bg: '#facc15', fg: '#0f172a',
+        desc: 'ประตูทางออกด้านหลังฝั่งโถงรถไฟทางไกล อยู่ใกล้ทางขึ้นรถไฟ B, ห้องอาบน้ำ, ห้องปฐมพยาบาล และบริการสิ่งของสูญหาย'
+      },
+      {
+        id: 'exit-10',
+        code: '10',
+        name: 'ทางออก 10 (ประตู 10)',
+        en: 'Exit 10 — Bus Stop & Taxi Concourse',
+        cat: 'exit',
+        catLabel: 'ประตูทางออก',
+        zone: 'ด้านหลังโถงกลาง',
+        x: -20, y: 4, z: -46,
+        bg: '#facc15', fg: '#0f172a',
+        desc: 'ประตูทางออกหลักฝั่งทิศตะวันตก เชื่อมต่อโดยตรงกับป้ายรถประจำทาง (ขสมก.) และจุดบริการรถแท็กซี่'
+      },
+      {
+        id: 'exit-13',
+        code: '13',
+        name: 'ทางออก 13 (ประตู 13)',
+        en: 'Exit 13 — South-West & MRT Link',
+        cat: 'exit',
+        catLabel: 'ประตูทางออก',
+        zone: 'ฝั่งซ้ายสุด (ใกล้ MRT สายสีน้ำเงิน)',
+        x: -108, y: 4, z: -36,
+        bg: '#facc15', fg: '#0f172a',
+        desc: 'ประตูทางออกฝั่งทิศใต้ เชื่อมต่อใกล้จุดจำหน่ายตั๋วและทางลงสถานีรถไฟฟ้า MRT สายสีน้ำเงิน (สถานีบางซื่อ)'
+      },
+
+      // --- DEPARTURE GATES & ARRIVAL MEETING POINTS (B, E, D, G) ---
+      {
+        id: 'gate-b',
+        code: 'B',
+        name: 'ทางขึ้นรถไฟ B (Departure Gate B)',
+        en: 'Departure Gate B — Long Distance Trains',
+        cat: 'gate',
+        catLabel: 'ทางขึ้นรถไฟ',
+        zone: 'โถงรถไฟทางไกล (ฝั่งขวาบน)',
+        x: 65, y: 5, z: -32,
+        bg: '#1d4ed8', fg: '#ffffff',
+        desc: 'ทางขึ้นชานชาลารถไฟทางไกลสายเหนือ/สายตะวันออกเฉียงเหนือ (โซน B) พร้อมบันไดเลื่อนและลิฟต์ขึ้นสู่ชานชาลาชั้นบน'
+      },
+      {
+        id: 'gate-e',
+        code: 'E',
+        name: 'ทางขึ้นรถไฟ E (Departure Gate E)',
+        en: 'Departure Gate E — Long Distance Trains',
+        cat: 'gate',
+        catLabel: 'ทางขึ้นรถไฟ',
+        zone: 'โถงรถไฟทางไกล (ฝั่งขวากลาง)',
+        x: 65, y: 5, z: -2,
+        bg: '#1d4ed8', fg: '#ffffff',
+        desc: 'ทางขึ้นชานชาลารถไฟทางไกลสายใต้และขบวนรถด่วนพิเศษ (โซน E) ล้อมรอบด้วยพื้นที่นั่งรอขึ้นรถไฟขนาดใหญ่'
+      },
+      {
+        id: 'arrival-d',
+        code: 'D',
+        name: 'จุดรอรับผู้โดยสารขาเข้า D',
+        en: 'Arrivals Meeting Point D',
+        cat: 'gate',
+        catLabel: 'จุดนัดพบขาเข้า',
+        zone: 'โถงกลาง (ฝั่งติดสายสีแดง)',
+        x: -33, y: 4.5, z: -5,
+        bg: '#1e293b', fg: '#f8fafc',
+        desc: 'จุดนัดพบและรอรับผู้โดยสารขาเข้า D ตั้งอยู่บริเวณโถงกลางใกล้เคาน์เตอร์ประชาสัมพันธ์และทางออกชานชาลารถไฟฟ้าสายสีแดง'
+      },
+      {
+        id: 'arrival-g',
+        code: 'G',
+        name: 'จุดรอรับผู้โดยสารขาเข้า G',
+        en: 'Arrivals Meeting Point G',
+        cat: 'gate',
+        catLabel: 'จุดนัดพบขาเข้า',
+        zone: 'โถงกลาง (ใกล้ทางออก 1)',
+        x: -35, y: 4.5, z: 26,
+        bg: '#1e293b', fg: '#f8fafc',
+        desc: 'จุดนัดพบและรอรับผู้โดยสารขาเข้า G ตั้งอยู่ใกล้ประตูทางออก 1 และจุดจำหน่ายตั๋วรถไฟฟ้าสายสีแดงฝั่งใต้'
+      },
+
+      // --- RAIL TRANSIT & TRANSPORT (SRT Red Line, MRT Blue Line, Bus, Taxi, Parking) ---
+      {
+        id: 'srt-red-north',
+        code: '🚆',
+        name: 'รถไฟฟ้าสายสีแดง (โซนเหนือ)',
+        en: 'SRT Red Line — Suburban Railway Concourse',
+        cat: 'transit',
+        catLabel: 'รถไฟฟ้าสายสีแดง',
+        zone: 'โถงรถไฟฟ้าสายสีแดง (ฝั่งซ้าย)',
+        x: -64, y: 5, z: -20,
+        bg: '#991b1b', fg: '#ffffff',
+        desc: 'พื้นที่ชานชาลาและประตูอัตโนมัติสำหรับรถไฟฟ้าชานเมืองสายสีแดงเข้ม (บางซื่อ-รังสิต) และสายสีแดงอ่อน (บางซื่อ-ตลิ่งชัน)'
+      },
+      {
+        id: 'srt-red-south',
+        code: '🚆',
+        name: 'รถไฟฟ้าสายสีแดง (โซนใต้)',
+        en: 'SRT Red Line — South Gate & Concourse',
+        cat: 'transit',
+        catLabel: 'รถไฟฟ้าสายสีแดง',
+        zone: 'โถงรถไฟฟ้าสายสีแดง (ฝั่งซ้ายล่าง)',
+        x: -64, y: 5, z: 14,
+        bg: '#991b1b', fg: '#ffffff',
+        desc: 'โถงทางเข้า-ออกรถไฟฟ้าสายสีแดงฝั่งทิศใต้ เชื่อมต่อกับจุดรอรับผู้โดยสารขาเข้า G และทางเดินไป MRT สายสีน้ำเงิน'
+      },
+      {
+        id: 'mrt-blue',
+        code: 'M',
+        name: 'รถไฟฟ้าสายสีน้ำเงิน (MRT)',
+        en: 'MRT Blue Line — Bang Sue Station Link',
+        cat: 'transit',
+        catLabel: 'MRT สายสีน้ำเงิน',
+        zone: 'ฝั่งซ้ายสุด (ใกล้ประตู 13)',
+        x: -98, y: 4.5, z: -12,
+        bg: '#0284c7', fg: '#ffffff',
+        desc: 'จุดเชื่อมต่อทางลงสถานีรถไฟฟ้าใต้ดิน MRT สายสีน้ำเงิน เพื่อเดินทางเข้าใจกลางกรุงเทพมหานคร (จตุจักร, สุขุมวิท, สีลม, หัวลำโพง)'
+      },
+      {
+        id: 'bus-stop',
+        code: '🚌',
+        name: 'ป้ายรถประจำทาง (Bus Stop)',
+        en: 'BMTA Bus Stop — Exit 10',
+        cat: 'transit',
+        catLabel: 'รถประจำทาง / แท็กซี่',
+        zone: 'ภายนอกอาคาร หน้าประตู 10',
+        x: -20, y: 4, z: -56,
+        bg: '#0f766e', fg: '#ffffff',
+        desc: 'จุดจอดรถโดยสารประจำทาง ขสมก. เชื่อมต่อหลากหลายเส้นทาง ตั้งอยู่ด้านนอกอาคารบริเวณหน้าประตูทางออก 10'
+      },
+      {
+        id: 'taxi-service',
+        code: '🚖',
+        name: 'จุดบริการแท็กซี่ (Taxi Service)',
+        en: 'Taxi Stand & Queue Counter',
+        cat: 'transit',
+        catLabel: 'รถประจำทาง / แท็กซี่',
+        zone: 'ด้านในใกล้ประตู 10',
+        x: -18, y: 3.8, z: -32,
+        bg: '#0f766e', fg: '#ffffff',
+        desc: 'เคาน์เตอร์จัดคิวและจุดบริการรถแท็กซี่สาธารณะสำหรับผู้โดยสารขาเข้า ตั้งอยู่บริเวณโถงกลางใกล้ประตูทางออก 10'
+      },
+      {
+        id: 'parking-p1',
+        code: 'P1',
+        name: 'ที่จอดรถ P1 (Parking 1)',
+        en: 'Underground Parking Access P1',
+        cat: 'transit',
+        catLabel: 'ที่จอดรถ',
+        zone: 'โถงด้านหน้า (ใกล้ประตู 1-2)',
+        x: 18, y: 3.5, z: 40,
+        bg: '#334155', fg: '#ffffff',
+        desc: 'จุดลิฟต์และบันไดเลื่อนขึ้น-ลงลานจอดรถชั้นใต้ดินโซน P1 (ใกล้ประตูทางออก 1 และ 2)'
+      },
+      {
+        id: 'parking-p2',
+        code: 'P2',
+        name: 'ที่จอดรถ P2 (Parking 2)',
+        en: 'Underground Parking Access P2',
+        cat: 'transit',
+        catLabel: 'ที่จอดรถ',
+        zone: 'โถงด้านหน้าฝั่งขวา (ใกล้ประตู 4)',
+        x: 95, y: 3.5, z: 39,
+        bg: '#334155', fg: '#ffffff',
+        desc: 'จุดลิฟต์และบันไดเลื่อนขึ้น-ลงลานจอดรถชั้นใต้ดินโซน P2 (ใกล้ประตูทางออก 4 และศูนย์อาหาร)'
+      },
+
+      // --- TICKETS & INFORMATION (จุดจำหน่ายตั๋ว & ติดต่อ-สอบถาม) ---
+      {
+        id: 'ticket-mrt',
+        code: '🎟️',
+        name: 'จุดจำหน่ายตั๋ว (ฝั่งประตู 13 / MRT)',
+        en: 'Ticket Counter & Machines (West)',
+        cat: 'service',
+        catLabel: 'จุดจำหน่ายตั๋ว',
+        zone: 'ใกล้ประตู 13 และ MRT',
+        x: -102, y: 3.8, z: -26,
+        bg: '#4f46e5', fg: '#ffffff',
+        desc: 'จุดจำหน่ายตั๋วโดยสารและตู้จำหน่ายตั๋วอัตโนมัติ บริเวณทางเชื่อม MRT สายสีน้ำเงินและประตูทางออก 13'
+      },
+      {
+        id: 'ticket-red-mid',
+        code: '🎟️',
+        name: 'จุดจำหน่ายตั๋ว (สายสีแดง โซนกลาง)',
+        en: 'SRT Red Line Ticket Office',
+        cat: 'service',
+        catLabel: 'จุดจำหน่ายตั๋ว',
+        zone: 'โถงรถไฟฟ้าสายสีแดง',
+        x: -48, y: 3.8, z: -4,
+        bg: '#4f46e5', fg: '#ffffff',
+        desc: 'ห้องจำหน่ายตั๋วและเติมเงินบัตรโดยสารรถไฟฟ้าชานเมืองสายสีแดง (ตรงข้ามจุดรอรับผู้โดยสารขาเข้า D)'
+      },
+      {
+        id: 'ticket-red-south',
+        code: '🎟️',
+        name: 'จุดจำหน่ายตั๋ว (สายสีแดง โซนใต้)',
+        en: 'South Ticket Counter (SRT Red Line)',
+        cat: 'service',
+        catLabel: 'จุดจำหน่ายตั๋ว',
+        zone: 'ใกล้จุดนัดพบ G',
+        x: -54, y: 3.8, z: 26,
+        bg: '#4f46e5', fg: '#ffffff',
+        desc: 'จุดจำหน่ายตั๋วโดยสารฝั่งทิศใต้ ใกล้จุดรอรับผู้โดยสารขาเข้า G'
+      },
+      {
+        id: 'ticket-long-distance',
+        code: '🎟️',
+        name: 'จุดจำหน่ายตั๋วรถไฟทางไกล',
+        en: 'Long-Distance Train Ticket Hall',
+        cat: 'service',
+        catLabel: 'จุดจำหน่ายตั๋ว',
+        zone: 'โถงด้านหน้าฝั่งขวา (ใกล้ประตู 3)',
+        x: 78, y: 3.8, z: 33,
+        bg: '#4f46e5', fg: '#ffffff',
+        desc: 'เคาน์เตอร์จำหน่ายตั๋วและสำรองที่นั่งรถไฟทางไกล (สายเหนือ, อีสาน, ใต้) ตั้งอยู่ใกล้ประตูทางออก 3 และทางขึ้นรถไฟ E'
+      },
+      {
+        id: 'info-main',
+        code: 'i',
+        name: 'ติดต่อ-สอบถาม (โถงกลาง ประตู 1)',
+        en: 'Main Information Center (Exit 1)',
+        cat: 'service',
+        catLabel: 'ติดต่อ-สอบถาม',
+        zone: 'โถงกลางด้านหน้า (ใกล้ประตู 1)',
+        x: -6, y: 3.8, z: 38,
+        bg: '#0284c7', fg: '#ffffff',
+        desc: 'เคาน์เตอร์ประชาสัมพันธ์และติดต่อสอบถามหลักประจำโถงกลาง ด้านหน้าประตูทางออก 1'
+      },
+      {
+        id: 'info-exit10',
+        code: 'i',
+        name: 'ติดต่อ-สอบถาม (ประตู 10)',
+        en: 'Information Desk (Exit 10)',
+        cat: 'service',
+        catLabel: 'ติดต่อ-สอบถาม',
+        zone: 'โถงด้านหลัง ใกล้ประตู 10',
+        x: -12, y: 3.8, z: -43,
+        bg: '#0284c7', fg: '#ffffff',
+        desc: 'จุดประชาสัมพันธ์และให้ข้อมูลการเดินทางเชื่อมต่อรถประจำทางและแท็กซี่ บริเวณประตูทางออก 10'
+      },
+      {
+        id: 'info-gate-d',
+        code: 'i',
+        name: 'ติดต่อ-สอบถาม (จุดนัดพบ D)',
+        en: 'Information Desk (Meeting Point D)',
+        cat: 'service',
+        catLabel: 'ติดต่อ-สอบถาม',
+        zone: 'โถงกลาง ติดจุดนัดพบ D',
+        x: -34, y: 3.8, z: 3,
+        bg: '#0284c7', fg: '#ffffff',
+        desc: 'เคาน์เตอร์ติดต่อสอบถามบริเวณจุดรอรับผู้โดยสารขาเข้า D และโถงรถไฟฟ้าสายสีแดง'
+      },
+      {
+        id: 'info-mrt',
+        code: 'i',
+        name: 'ติดต่อ-สอบถาม (ฝั่ง MRT / สายสีแดง)',
+        en: 'Information Desk (MRT Link)',
+        cat: 'service',
+        catLabel: 'ติดต่อ-สอบถาม',
+        zone: 'ทางเชื่อม MRT สายสีน้ำเงิน',
+        x: -86, y: 3.8, z: -9,
+        bg: '#0284c7', fg: '#ffffff',
+        desc: 'จุดบริการข้อมูลการเดินทางเชื่อมต่อระหว่างรถไฟฟ้าสายสีแดงและรถไฟฟ้าใต้ดิน MRT สายสีน้ำเงิน'
+      },
+      {
+        id: 'info-departure',
+        code: 'i',
+        name: 'ติดต่อ-สอบถาม (โถงรถไฟทางไกล)',
+        en: 'Information Desk (Departure Hall E)',
+        cat: 'service',
+        catLabel: 'ติดต่อ-สอบถาม',
+        zone: 'ใกล้ทางขึ้นรถไฟ E',
+        x: 88, y: 3.8, z: 12,
+        bg: '#0284c7', fg: '#ffffff',
+        desc: 'จุดสอบถามข้อมูลตารางเวลาเดินรถไฟทางไกลและชานชาลา บริเวณทางขึ้นรถไฟ E'
+      },
+
+      // --- FACILITIES (Waiting Area, Food Court, Lounge, Prayer, First Aid, Lost&Found, Toilets, Shower) ---
+      {
+        id: 'waiting-area',
+        code: '💺',
+        name: 'จุดรอขึ้นรถไฟ (Waiting Area B & E)',
+        en: 'Main Passenger Waiting Seating Area',
+        cat: 'facility',
+        catLabel: 'สิ่งอำนวยความสะดวก',
+        zone: 'โถงพักคอยผู้โดยสาร (ฝั่งขวา)',
+        x: 65, y: 3.8, z: -17,
+        bg: '#0d9488', fg: '#ffffff',
+        desc: 'พื้นที่เก้าอี้พักคอยผู้โดยสารขนาดใหญ่ รองรับผู้โดยสารที่รอขึ้นรถไฟทางไกลบริเวณทางขึ้นรถไฟ B และ E'
+      },
+      {
+        id: 'food-court',
+        code: '🍴',
+        name: 'ศูนย์อาหาร (Food Court)',
+        en: 'Station Food Court & Dining Zone',
+        cat: 'facility',
+        catLabel: 'อาหารและร้านค้า',
+        zone: 'มุมขวาล่าง (ใกล้ประตู 4)',
+        x: 108, y: 4, z: 45,
+        bg: '#ea580c', fg: '#ffffff',
+        desc: 'ศูนย์อาหารและร้านเครื่องดื่มประจำสถานี ตั้งอยู่บริเวณมุมอาคารด้านหน้าใกล้ประตูทางออก 4 และที่จอดรถ P2'
+      },
+      {
+        id: 'passenger-lounge',
+        code: '🛋️',
+        name: 'ห้องรับรอง (Passenger Lounge)',
+        en: 'VIP & Special Passenger Lounge',
+        cat: 'facility',
+        catLabel: 'ห้องบริการพิเศษ',
+        zone: 'ฝั่งขวาของโถงรถไฟทางไกล',
+        x: 108, y: 4, z: 18,
+        bg: '#7c3aed', fg: '#ffffff',
+        desc: 'ห้องรับรองพิเศษสำหรับผู้โดยสาร พร้อมที่นั่งพักผ่อนและสิ่งอำนวยความสะดวก'
+      },
+      {
+        id: 'prayer-room',
+        code: '🕌',
+        name: 'ห้องละหมาด (Muslim Prayer Room)',
+        en: 'Muslim Prayer Room',
+        cat: 'facility',
+        catLabel: 'ห้องบริการพิเศษ',
+        zone: 'ฝั่งขวา (ใกล้ทางขึ้นรถไฟ E)',
+        x: 104, y: 4, z: -13,
+        bg: '#059669', fg: '#ffffff',
+        desc: 'ห้องประกอบศาสนกิจสำหรับผู้โดยสารชาวมุสลิม พร้อมพื้นที่อาบน้ำละหมาดแยกชาย-หญิง'
+      },
+      {
+        id: 'first-aid',
+        code: '➕',
+        name: 'ห้องปฐมพยาบาล (First Aid Room)',
+        en: 'Medical & First Aid Room',
+        cat: 'facility',
+        catLabel: 'ห้องบริการพิเศษ',
+        zone: 'ฝั่งขวาบน (ใกล้ประตู 5)',
+        x: 108, y: 4, z: -26,
+        bg: '#dc2626', fg: '#ffffff',
+        desc: 'ห้องปฐมพยาบาลและดูแลเหตุฉุกเฉินทางการแพทย์เบื้องต้นสำหรับผู้โดยสารภายในสถานี'
+      },
+      {
+        id: 'lost-found',
+        code: '💼',
+        name: 'บริการสิ่งของสูญหาย (Lost & Found)',
+        en: 'Lost and Found Service Center',
+        cat: 'facility',
+        catLabel: 'ห้องบริการพิเศษ',
+        zone: 'ฝั่งขวาบน (ใกล้ประตู 5)',
+        x: 108, y: 4, z: -36,
+        bg: '#475569', fg: '#ffffff',
+        desc: 'ศูนย์รับแจ้งและติดตามทรัพย์สินหรือสัมภาระสูญหายภายในบริเวณสถานี'
+      },
+      {
+        id: 'toilet-shower',
+        code: '🚿',
+        name: 'ห้องน้ำและห้องอาบน้ำ (ใกล้ประตู 5)',
+        en: 'Restrooms & Shower Facilities',
+        cat: 'facility',
+        catLabel: 'ห้องน้ำ / ห้องอาบน้ำ',
+        zone: 'มุมขวาบน (ข้างประตู 5)',
+        x: 98, y: 3.8, z: -45,
+        bg: '#0ea5e9', fg: '#ffffff',
+        desc: 'บริการห้องน้ำ ห้องสุขาคนพิการ และห้องอาบน้ำสำหรับผู้โดยสารเดินทางไกล บริเวณประตูทางออก 5'
+      },
+      {
+        id: 'toilet-top-left',
+        code: '🚻',
+        name: 'ห้องน้ำ (โซนสายสีแดง ฝั่งเหนือ)',
+        en: 'Restrooms — North Red Line Wing',
+        cat: 'facility',
+        catLabel: 'ห้องน้ำ / ห้องอาบน้ำ',
+        zone: 'ด้านบนฝั่งซ้าย',
+        x: -58, y: 3.8, z: -45,
+        bg: '#0ea5e9', fg: '#ffffff',
+        desc: 'ห้องน้ำและห้องสุขาสำหรับผู้พิการ บริเวณโถงรถไฟฟ้าสายสีแดงฝั่งทิศเหนือ'
+      },
+      {
+        id: 'toilet-top-right',
+        code: '🚻',
+        name: 'ห้องน้ำ (ใกล้ทางขึ้นรถไฟ B)',
+        en: 'Restrooms — Gate B Concourse',
+        cat: 'facility',
+        catLabel: 'ห้องน้ำ / ห้องอาบน้ำ',
+        zone: 'ด้านหลังทางขึ้นรถไฟ B',
+        x: 50, y: 3.8, z: -45,
+        bg: '#0ea5e9', fg: '#ffffff',
+        desc: 'ห้องน้ำและห้องสุขาสำหรับผู้พิการ บริเวณด้านหลังทางขึ้นรถไฟทางไกลโซน B'
+      },
+      {
+        id: 'toilet-front-mid',
+        code: '🚻',
+        name: 'ห้องน้ำ (โถงด้านหน้า ใกล้ P1)',
+        en: 'Restrooms — Central Front Concourse',
+        cat: 'facility',
+        catLabel: 'ห้องน้ำ / ห้องอาบน้ำ',
+        zone: 'ใกล้ประตู 1 และ P1',
+        x: 6, y: 3.8, z: 32,
+        bg: '#0ea5e9', fg: '#ffffff',
+        desc: 'ห้องน้ำและห้องสุขาสำหรับผู้พิการ บริเวณโถงกลางด้านหน้าใกล้ประตูทางออก 1 และ 2'
+      },
+      {
+        id: 'toilet-front-right',
+        code: '🚻',
+        name: 'ห้องน้ำ (โถงด้านหน้า ใกล้ประตู 2-3)',
+        en: 'Restrooms — Front Departure Concourse',
+        cat: 'facility',
+        catLabel: 'ห้องน้ำ / ห้องอาบน้ำ',
+        zone: 'ระหว่างประตู 2 และ 3',
+        x: 50, y: 3.8, z: 32,
+        bg: '#0ea5e9', fg: '#ffffff',
+        desc: 'ห้องน้ำและห้องสุขาสำหรับผู้พิการ บริเวณโถงพักคอยด้านหน้าใกล้ประตูทางออก 2 และ 3'
+      },
+
+      // --- 3D CUTAWAY HIGHLIGHT ZONES (โซน 1, 2, 3, 4 ตามรูปตัวอย่างที่ 3) ---
+      {
+        id: 'zone-1',
+        code: '①',
+        name: 'โซน 1: โถงกลางหลัก (Main Hall)',
+        en: 'Zone 1 — Grand Central Concourse',
+        cat: 'zone',
+        catLabel: 'โซนไฮไลท์ (รูปผัง 3D)',
+        zone: 'โถงทางเดินหลัก ประตู 1 - ประตู 10',
+        x: -20, y: 2.5, z: -8,
+        bg: '#f59e0b', fg: '#0f172a',
+        desc: 'พื้นที่โถงกลางขนาดใหญ่เชื่อมระหว่างประตูทางออก 1 และประตูทางออก 10 รองรับการจัดงานนิทรรศการและเป็นจุดกระจายผู้โดยสารหลัก'
+      },
+      {
+        id: 'zone-2',
+        code: '②',
+        name: 'โซน 2: ลานอเนกประสงค์ด้านหน้า',
+        en: 'Zone 2 — Front Landscaped Plaza',
+        cat: 'zone',
+        catLabel: 'โซนไฮไลท์ (รูปผัง 3D)',
+        zone: 'ลานด้านหน้าฝั่งซ้ายของประตู 1',
+        x: -72, y: 2.5, z: 50,
+        bg: '#f59e0b', fg: '#0f172a',
+        desc: 'พื้นที่ลานภูมิทัศน์และทางลาดด้านหน้าอาคารฝั่งทิศใต้ เชื่อมต่อสวนและจุดรับ-ส่งด้านหน้า'
+      },
+      {
+        id: 'zone-3',
+        code: '③',
+        name: 'โซน 3: พื้นที่เวทีกลาง (Stage Area)',
+        en: 'Zone 3 — Central Event Stage',
+        cat: 'zone',
+        catLabel: 'โซนไฮไลท์ (รูปผัง 3D)',
+        zone: 'โถงหน้าประตูทางออก 1',
+        x: -20, y: 2.5, z: 32,
+        bg: '#f59e0b', fg: '#0f172a',
+        desc: 'พื้นที่เวทีและจุดจัดกิจกรรมหลักบริเวณด้านในประตูทางออก 1 ใต้โถงซุ้มโค้งนาฬิกา'
+      },
+      {
+        id: 'zone-4',
+        code: '④',
+        name: 'โซน 4: โถงนิทรรศการ / รับรองพิเศษ',
+        en: 'Zone 4 — Exhibition & Pavilion Hall',
+        cat: 'zone',
+        catLabel: 'โซนไฮไลท์ (รูปผัง 3D)',
+        zone: 'โถงกระจกด้านซ้ายของประตู 1',
+        x: -56, y: 3.5, z: 38,
+        bg: '#f59e0b', fg: '#0f172a',
+        desc: 'พื้นที่โถงจัดแสดงนิทรรศการและห้องรับรองตกแต่งด้วยผนังกระจกและไฟส่องสว่างโทนอบอุ่น (ตามผังพื้นที่ภายในหมายเลข 4)'
+      }
+    ];
+
+    // ============================================================================
+    // 2. THREE.JS SCENE, CAMERA & RENDERERS
+    // ============================================================================
+    const container = document.getElementById('canvas-container');
+    const labelContainer = document.getElementById('label-container');
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color('#0f172a');
+    scene.fog = new THREE.FogExp2('#0f172a', 0.0011);
+
+    const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 1, 1500);
+    camera.position.set(0, 125, 145);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.15;
+    container.appendChild(renderer.domElement);
+
+    const labelRenderer = new CSS2DRenderer();
+    labelRenderer.setSize(window.innerWidth, window.innerHeight);
+    labelContainer.appendChild(labelRenderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+    controls.maxPolarAngle = Math.PI / 2 - 0.03;
+    controls.minDistance = 30;
+    controls.maxDistance = 480;
+    controls.target.set(0, 2, 5);
+
+    // ============================================================================
+    // 3. LIGHTING
+    // ============================================================================
+    const ambientLight = new THREE.AmbientLight('#e2e8f0', 0.9);
+    scene.add(ambientLight);
+
+    const hemiLight = new THREE.HemisphereLight('#bae6fd', '#334155', 0.75);
+    hemiLight.position.set(0, 200, 0);
+    scene.add(hemiLight);
+
+    const dirLight = new THREE.DirectionalLight('#fffbeb', 1.55);
+    dirLight.position.set(80, 160, 110);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
+    dirLight.shadow.camera.near = 10;
+    dirLight.shadow.camera.far = 420;
+    const d = 160;
+    dirLight.shadow.camera.left = -d;
+    dirLight.shadow.camera.right = d;
+    dirLight.shadow.camera.top = d;
+    dirLight.shadow.camera.bottom = -d;
+    dirLight.shadow.bias = -0.0005;
+    scene.add(dirLight);
+
+    // Warm interior point lights for Zone 1 & Zone 4
+    const warmLight1 = new THREE.PointLight('#fbbf24', 1.2, 65);
+    warmLight1.position.set(-20, 8, 10);
+    scene.add(warmLight1);
+
+    const warmLight4 = new THREE.PointLight('#f59e0b', 1.6, 45);
+    warmLight4.position.set(-56, 7, 38);
+    scene.add(warmLight4);
+
+    // ============================================================================
+    // 4. GROUPS FOR 3D FLOOR PLAN ARCHITECTURE
+    // ============================================================================
+    const worldGroup = new THREE.Group();
+    scene.add(worldGroup);
+
+    const interiorGroup = new THREE.Group(); // Floor plan, zones, furniture
+    worldGroup.add(interiorGroup);
+
+    const wallsGroup = new THREE.Group(); // Perimeter & partition walls + pillars
+    interiorGroup.add(wallsGroup);
+
+    const routeGroup = new THREE.Group(); // 3D Wayfinding path
+    worldGroup.add(routeGroup);
+
+    const trafficGroup = new THREE.Group(); // Moving drop-off cars
+    worldGroup.add(trafficGroup);
+
+    // ============================================================================
+    // 5. BUILD SURROUNDING BASE, FRONT DROP-OFF CANOPY, ROAD & TREES
+    // ============================================================================
+    function buildEnvironment() {
+      // Architectural Model Base Platter (matching the warm stone base of the 3D floor plan)
+      const platterGeo = new THREE.BoxGeometry(276, 2.4, 168);
+      const platterMat = new THREE.MeshStandardMaterial({ color: '#d6cfc2', roughness: 0.9 });
+      const platter = new THREE.Mesh(platterGeo, platterMat);
+      platter.position.set(0, -1.25, 16);
+      platter.receiveShadow = true;
+      interiorGroup.add(platter);
+
+      // Front Main Drop-off Road (Z = 66 to 90)
+      const roadGeo = new THREE.PlaneGeometry(264, 24);
+      const roadMat = new THREE.MeshStandardMaterial({ color: '#334155', roughness: 0.85 });
+      const road = new THREE.Mesh(roadGeo, roadMat);
+      road.rotation.x = -Math.PI / 2;
+      road.position.set(0, 0.05, 78);
+      road.receiveShadow = true;
+      interiorGroup.add(road);
+
+      // Road lane dashed markings
+      const dashMat = new THREE.MeshBasicMaterial({ color: '#e2e8f0' });
+      for (let x = -120; x <= 120; x += 12) {
+        const dash1 = new THREE.Mesh(new THREE.PlaneGeometry(5, 0.35), dashMat);
+        dash1.rotation.x = -Math.PI / 2;
+        dash1.position.set(x, 0.09, 72);
+        interiorGroup.add(dash1);
+
+        const dash2 = new THREE.Mesh(new THREE.PlaneGeometry(5, 0.35), dashMat);
+        dash2.rotation.x = -Math.PI / 2;
+        dash2.position.set(x, 0.09, 84);
+        interiorGroup.add(dash2);
+      }
+
+      // Landscaped road median island (matching the 3D floor plan bottom road)
+      const medianGeo = new THREE.BoxGeometry(195, 0.6, 3.2);
+      const medianMat = new THREE.MeshStandardMaterial({ color: '#94a3b8', roughness: 0.7 });
+      const median = new THREE.Mesh(medianGeo, medianMat);
+      median.position.set(18, 0.3, 78);
+      interiorGroup.add(median);
+
+      // Front-Left Zone 2 Landscaped Plaza (matching number 2 in the 3D floor plan)
+      const zone2Geo = new THREE.BoxGeometry(62, 0.35, 11);
+      const zone2Mat = new THREE.MeshStandardMaterial({ color: '#eab308', roughness: 0.55 });
+      const zone2Mesh = new THREE.Mesh(zone2Geo, zone2Mat);
+      zone2Mesh.position.set(-70, 0.2, 51);
+      zone2Mesh.receiveShadow = true;
+      interiorGroup.add(zone2Mesh);
+
+      // Front Blue/Silver Covered Drop-off Canopy (connecting Exits 1, 2, 3, 4 to the road)
+      const canopyMat = new THREE.MeshStandardMaterial({
+        color: '#60a5fa',
+        metalness: 0.35,
+        roughness: 0.35
+      });
+      const mainCanopyBar = new THREE.Mesh(new THREE.BoxGeometry(132, 0.5, 4.5), canopyMat);
+      mainCanopyBar.position.set(52, 4.2, 62);
+      mainCanopyBar.castShadow = true;
+      interiorGroup.add(mainCanopyBar);
+
+      const leftCanopyBar = new THREE.Mesh(new THREE.BoxGeometry(68, 0.5, 3.8), canopyMat);
+      leftCanopyBar.position.set(-64, 4.2, 58);
+      leftCanopyBar.castShadow = true;
+      interiorGroup.add(leftCanopyBar);
+
+      // Canopy connector bridges into Exit 1 (-20), Exit 2 (32), Exit 3 (64), Exit 4 (92)
+      const exitXPositions = [-33, 0, 32, 64, 92];
+      exitXPositions.forEach((ex) => {
+        const bridge = new THREE.Mesh(new THREE.BoxGeometry(6.5, 0.5, 12), canopyMat);
+        bridge.position.set(ex, 4.2, 55.5);
+        bridge.castShadow = true;
+        interiorGroup.add(bridge);
+
+        for (let zPos of [51, 61.5]) {
+          const col = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.28, 0.28, 4.2, 8),
+            new THREE.MeshStandardMaterial({ color: '#cbd5e1', metalness: 0.5 })
+          );
+          col.position.set(ex, 2.1, zPos);
+          interiorGroup.add(col);
+        }
+      });
+
+      // Stylized Trees around the station perimeter (matching the architectural floor plan model)
+      const trunkMat = new THREE.MeshStandardMaterial({ color: '#5c4033', roughness: 0.9 });
+      const crownColors = ['#a16207', '#b45309', '#ca8a04', '#65a30d', '#78716c'];
+
+      function addTree(tx, tz, scale = 1) {
+        const tree = new THREE.Group();
+        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.25 * scale, 0.4 * scale, 2.2 * scale, 7), trunkMat);
+        trunk.position.y = 1.1 * scale;
+        tree.add(trunk);
+
+        const cMat = new THREE.MeshStandardMaterial({
+          color: crownColors[Math.floor(Math.abs(tx + tz) % crownColors.length)],
+          roughness: 0.8
+        });
+        const crown = new THREE.Mesh(new THREE.DodecahedronGeometry(1.65 * scale, 1), cMat);
+        crown.position.y = 2.8 * scale;
+        crown.scale.y = 0.85;
+        crown.castShadow = true;
+        tree.add(crown);
+
+        tree.position.set(tx, 0, tz);
+        interiorGroup.add(tree);
+      }
+
+      for (let x = -72; x <= 112; x += 9) {
+        addTree(x, 78, 0.85);
+      }
+      for (let z = -42; z <= 42; z += 9) {
+        addTree(-118, z, 1.0);
+        addTree(120, z, 1.0);
+      }
+      for (let x of [-95, -82, -45, 14, 22, 46, 54, 76, 82, 105]) {
+        addTree(x, 54, 0.9);
+      }
+    }
+
+    // ============================================================================
+    // 6. BUILD STEPPED INTERIOR FLOOR PLAN, WALLS, ZONES & FURNITURE
+    // ============================================================================
+    let mapOverlayMesh = null;
+
+    function buildInteriorFloorPlan() {
+      const baseFloorMat = new THREE.MeshStandardMaterial({ color: '#94a3b8', roughness: 0.75 });
+
+      // 1. Stepped Interior Floor Slabs (matching exact L-shaped / stepped station boundary)
+      // Left Wing Slab (x = -112 to -38, z = -46 to +28)
+      const leftWingSlab = new THREE.Mesh(new THREE.BoxGeometry(74, 0.6, 74), baseFloorMat);
+      leftWingSlab.position.set(-75, 0.3, -9);
+      leftWingSlab.receiveShadow = true;
+      interiorGroup.add(leftWingSlab);
+
+      // Main Concourse & Right Wing Slab (x = -38 to +114, z = -46 to +50)
+      const mainWingSlab = new THREE.Mesh(new THREE.BoxGeometry(152, 0.6, 96), baseFloorMat);
+      mainWingSlab.position.set(38, 0.3, 2);
+      mainWingSlab.receiveShadow = true;
+      interiorGroup.add(mainWingSlab);
+
+      // Top Alcove Slabs (Restrooms & Exit 10 at z = -49)
+      [
+        { x: -58, w: 16 },
+        { x: -20, w: 18 },
+        { x: 50,  w: 16 },
+        { x: 98,  w: 22 }
+      ].forEach((alc) => {
+        const alcSlab = new THREE.Mesh(new THREE.BoxGeometry(alc.w, 0.6, 8), baseFloorMat);
+        alcSlab.position.set(alc.x, 0.3, -49);
+        alcSlab.receiveShadow = true;
+        interiorGroup.add(alcSlab);
+      });
+
+      // Optional 2D Station Map Texture Overlay (Loaded from offline Data URI or assets/station_map_2d.jpg)
+      const texLoader = new THREE.TextureLoader();
+      const mapSrc = window.STATION_MAP_DATA_URI || 'assets/station_map_2d.jpg';
+      texLoader.load(mapSrc, (tex) => {
+        tex.colorSpace = THREE.SRGBColorSpace;
+        const overlayGeo = new THREE.PlaneGeometry(252, 138);
+        const overlayMat = new THREE.MeshBasicMaterial({
+          map: tex,
+          transparent: true,
+          opacity: 0.92
+        });
+        mapOverlayMesh = new THREE.Mesh(overlayGeo, overlayMat);
+        mapOverlayMesh.rotation.x = -Math.PI / 2;
+        mapOverlayMesh.position.set(0, 0.72, 4);
+        mapOverlayMesh.visible = false;
+        interiorGroup.add(mapOverlayMesh);
+      });
+
+      // --- ZONE 1 & ZONE 3: Golden-Yellow Central Concourse & Stage ---
+      const concourseGeo = new THREE.BoxGeometry(24, 0.16, 96);
+      const concourseMat = new THREE.MeshStandardMaterial({
+        color: '#facc15',
+        roughness: 0.45,
+        metalness: 0.1
+      });
+      const concourseFloor = new THREE.Mesh(concourseGeo, concourseMat);
+      concourseFloor.position.set(-20, 0.65, 2);
+      concourseFloor.receiveShadow = true;
+      interiorGroup.add(concourseFloor);
+
+      // Stage platform at Zone 3 (near Exit 1)
+      const stageGeo = new THREE.BoxGeometry(14, 0.7, 7);
+      const stageMat = new THREE.MeshStandardMaterial({ color: '#f59e0b', roughness: 0.4 });
+      const stageMesh = new THREE.Mesh(stageGeo, stageMat);
+      stageMesh.position.set(-20, 1.0, 32);
+      stageMesh.castShadow = true;
+      interiorGroup.add(stageMesh);
+
+      // --- ZONE 4: Exhibition / Warm Glass Hall (Bottom-left next to Exit 1) ---
+      const zone4Floor = new THREE.Mesh(
+        new THREE.BoxGeometry(36, 0.6, 22),
+        new THREE.MeshStandardMaterial({ color: '#fde047', roughness: 0.4 })
+      );
+      zone4Floor.position.set(-56, 0.35, 39);
+      zone4Floor.receiveShadow = true;
+      interiorGroup.add(zone4Floor);
+
+      const glassPartitionMat = new THREE.MeshPhysicalMaterial({
+        color: '#fef08a',
+        transparent: true,
+        opacity: 0.45,
+        roughness: 0.15
+      });
+      const zone4GlassFront = new THREE.Mesh(new THREE.BoxGeometry(34, 4.5, 0.3), glassPartitionMat);
+      zone4GlassFront.position.set(-56, 2.8, 49.5);
+      wallsGroup.add(zone4GlassFront);
+
+      // --- SRT RED LINE ZONES (Two Maroon Platforms connected by H-spine on Left Wing) ---
+      const redLineMat = new THREE.MeshStandardMaterial({ color: '#7f1d1d', roughness: 0.6 });
+
+      const redNorth = new THREE.Mesh(new THREE.BoxGeometry(44, 0.5, 18), redLineMat);
+      redNorth.position.set(-64, 0.85, -20);
+      redNorth.receiveShadow = true;
+      interiorGroup.add(redNorth);
+
+      const redSouth = new THREE.Mesh(new THREE.BoxGeometry(44, 0.5, 18), redLineMat);
+      redSouth.position.set(-64, 0.85, 14);
+      redSouth.receiveShadow = true;
+      interiorGroup.add(redSouth);
+
+      const redSpine = new THREE.Mesh(new THREE.BoxGeometry(10, 0.5, 18), redLineMat);
+      redSpine.position.set(-66, 0.85, -3);
+      interiorGroup.add(redSpine);
+
+      // Escalators inside Red Line zones
+      const escMat = new THREE.MeshStandardMaterial({ color: '#cbd5e1', metalness: 0.6, roughness: 0.3 });
+      for (let zPos of [-20, 14]) {
+        for (let xPos of [-74, -52]) {
+          const esc = new THREE.Mesh(new THREE.BoxGeometry(6, 2.8, 2.2), escMat);
+          esc.position.set(xPos, 2.1, zPos);
+          esc.rotation.z = xPos < -60 ? 0.25 : -0.25;
+          esc.castShadow = true;
+          interiorGroup.add(esc);
+        }
+      }
+
+      // --- MRT BLUE LINE ZONE (Far Left) ---
+      const mrtFloor = new THREE.Mesh(
+        new THREE.BoxGeometry(16, 0.3, 30),
+        new THREE.MeshStandardMaterial({ color: '#1e3a8a', roughness: 0.55 })
+      );
+      mrtFloor.position.set(-98, 0.72, -12);
+      interiorGroup.add(mrtFloor);
+
+      // --- CENTRAL DARK-GREY COMMERCIAL / HALL BLOCKS (3 Blocks in Middle Center) ---
+      const blockMat = new THREE.MeshStandardMaterial({ color: '#334155', roughness: 0.65 });
+      const blockPositions = [
+        { x: 12, z: -26, w: 38, d: 15 },
+        { x: 12, z: -3,  w: 38, d: 17 },
+        { x: 12, z: 21,  w: 38, d: 15 }
+      ];
+      blockPositions.forEach((b) => {
+        const blk = new THREE.Mesh(new THREE.BoxGeometry(b.w, 3.2, b.d), blockMat);
+        blk.position.set(b.x, 2.2, b.z);
+        blk.castShadow = true;
+        blk.receiveShadow = true;
+        wallsGroup.add(blk);
+      });
+
+      // --- DEPARTURE GATES B & E (Royal Blue Boarding Islands on Right Wing) ---
+      const gateBlueMat = new THREE.MeshStandardMaterial({ color: '#1d4ed8', roughness: 0.4 });
+      [
+        { z: -32, label: 'B' },
+        { z: -2,  label: 'E' }
+      ].forEach((g) => {
+        const gateIsland = new THREE.Mesh(new THREE.BoxGeometry(40, 1.4, 5.5), gateBlueMat);
+        gateIsland.position.set(65, 1.3, g.z);
+        gateIsland.castShadow = true;
+        interiorGroup.add(gateIsland);
+
+        const gateEsc = new THREE.Mesh(new THREE.BoxGeometry(9, 4.2, 2.6), escMat);
+        gateEsc.position.set(56, 3.1, g.z);
+        gateEsc.rotation.z = 0.35;
+        interiorGroup.add(gateEsc);
+
+        const gateEsc2 = new THREE.Mesh(new THREE.BoxGeometry(9, 4.2, 2.6), escMat);
+        gateEsc2.position.set(74, 3.1, g.z);
+        gateEsc2.rotation.z = -0.35;
+        interiorGroup.add(gateEsc2);
+      });
+
+      // --- WAITING AREA SEATING ROWS (Rows of benches around Gates B & E) ---
+      const benchMat = new THREE.MeshStandardMaterial({ color: '#475569', roughness: 0.6 });
+      const waitingZRows = [-23, -17, -11, 7, 14, 21];
+      const waitingXCols = [52, 78];
+      waitingZRows.forEach((rz) => {
+        waitingXCols.forEach((rx) => {
+          for (let sub = -1.6; sub <= 1.6; sub += 1.6) {
+            const bench = new THREE.Mesh(new THREE.BoxGeometry(11, 0.9, 0.9), benchMat);
+            bench.position.set(rx, 1.05, rz + sub);
+            bench.castShadow = true;
+            interiorGroup.add(bench);
+          }
+        });
+      });
+
+      // --- PERIMETER ARCHITECTURAL WALLS & PILLARS ---
+      const wallMat = new THREE.MeshStandardMaterial({ color: '#e2e8f0', roughness: 0.6 });
+      const pillarMat = new THREE.MeshStandardMaterial({ color: '#f8fafc', roughness: 0.5 });
+
+      function addWallSegment(x1, z1, x2, z2, height = 5.5, thickness = 1.2) {
+        const dx = x2 - x1;
+        const dz = z2 - z1;
+        const len = Math.hypot(dx, dz);
+        const wall = new THREE.Mesh(new THREE.BoxGeometry(len, height, thickness), wallMat);
+        wall.position.set((x1 + x2) / 2, height / 2 + 0.6, (z1 + z2) / 2);
+        wall.rotation.y = -Math.atan2(dz, dx);
+        wall.castShadow = true;
+        wall.receiveShadow = true;
+        wallsGroup.add(wall);
+      }
+
+      function addPillar(px, pz, height = 6.4) {
+        const pil = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 1.05, height, 12), pillarMat);
+        pil.position.set(px, height / 2 + 0.6, pz);
+        pil.castShadow = true;
+        wallsGroup.add(pil);
+      }
+
+      // Top Wall (-Z = -46) with gaps for Exit 13 (-108), Exit 10 (-20), Exit 5 (84)
+      addWallSegment(-112, -46, -26, -46);
+      addWallSegment(-14, -46, 78, -46);
+      addWallSegment(90, -46, 114, -46);
+
+      // Left Wall (-X = -112)
+      addWallSegment(-112, -46, -112, -40);
+      addWallSegment(-112, -32, -112, 28);
+
+      // Bottom-Left Stepped Wall (around Red Line & Zone 4)
+      addWallSegment(-112, 28, -38, 28);
+      addWallSegment(-38, 28, -38, 50);
+
+      // Front Wall (+Z = 50) with gaps for Exits 1 (-20), 2 (32), 3 (64), 4 (92)
+      addWallSegment(-38, 50, -25, 50);
+      addWallSegment(-15, 50, 27, 50);
+      addWallSegment(37, 50, 59, 50);
+      addWallSegment(69, 50, 87, 50);
+      addWallSegment(97, 50, 114, 50);
+
+      // Right Wall (+X = 114) and Internal Service Rooms Partition (+X = 98)
+      addWallSegment(114, -46, 114, 50);
+      addWallSegment(98, -46, 98, 26, 4.2, 0.8);
+
+      // Structural Pillars along perimeter
+      for (let x = -108; x <= 112; x += 18) {
+        addPillar(x, -46);
+        if (x >= -36) addPillar(x, 50);
+      }
+      for (let z = -30; z <= 35; z += 16) {
+        addPillar(-112, z);
+        addPillar(114, z);
+      }
+    }
+
+    // ============================================================================
+    // 7. ANIMATED DROP-OFF ROAD VEHICLES
+    // ============================================================================
+    const animatedVehicles = [];
+
+    function buildTraffic() {
+      const carColors = ['#facc15', '#ef4444', '#38bdf8', '#f8fafc', '#22c55e', '#a855f7'];
+      for (let i = 0; i < 8; i++) {
+        const laneZ = i % 2 === 0 ? 70 : 86;
+        const dir = i % 2 === 0 ? 1 : -1;
+        const carGroup = new THREE.Group();
+        const cMat = new THREE.MeshStandardMaterial({ color: carColors[i % carColors.length], roughness: 0.35 });
+        const base = new THREE.Mesh(new THREE.BoxGeometry(4.2, 1.1, 2.0), cMat);
+        base.position.y = 0.7;
+        carGroup.add(base);
+        const cabin = new THREE.Mesh(
+          new THREE.BoxGeometry(2.2, 0.9, 1.7),
+          new THREE.MeshStandardMaterial({ color: '#1e293b', roughness: 0.2 })
+        );
+        cabin.position.y = 1.5;
+        carGroup.add(cabin);
+
+        carGroup.position.set(-105 + i * 28, 0.1, laneZ);
+        trafficGroup.add(carGroup);
+        animatedVehicles.push({
+          mesh: carGroup,
+          speed: 0.2 + (i % 3) * 0.05,
+          dir,
+          minX: -125,
+          maxX: 125
+        });
+      }
+    }
+
+    // ============================================================================
+    // 9. CREATE INTERACTIVE 3D PINS & SIDEBAR UI
+    // ============================================================================
+    const pinObjects = new Map();
+    let selectedPoiId = null;
+
+    function buildInteractivePins() {
+      const poiListEl = document.getElementById('poi-list');
+      const fromSelect = document.getElementById('route-from');
+      const toSelect = document.getElementById('route-to');
+
+      // Populate Wayfinding Dropdowns
+      STATION_POIS.forEach((poi, idx) => {
+        const opt1 = new Option(`${poi.code} - ${poi.name}`, poi.id);
+        const opt2 = new Option(`${poi.code} - ${poi.name}`, poi.id);
+        fromSelect.add(opt1);
+        toSelect.add(opt2);
+        if (poi.id === 'exit-1') fromSelect.selectedIndex = idx;
+        if (poi.id === 'gate-b') toSelect.selectedIndex = idx;
+      });
+
+      // Create 3D CSS2D Pins
+      STATION_POIS.forEach((poi) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'poi-pin-wrap';
+        wrap.dataset.id = poi.id;
+        wrap.dataset.cat = poi.cat;
+
+        const bubble = document.createElement('div');
+        bubble.className = 'pin-bubble';
+        bubble.style.background = poi.bg;
+        bubble.style.color = poi.fg;
+        bubble.innerHTML = `<span>${poi.code}</span><span style="font-weight:500;font-size:10.5px;">${poi.name.split(' (')[0]}</span>`;
+
+        const stem = document.createElement('div');
+        stem.className = 'pin-stem';
+
+        const dot = document.createElement('div');
+        dot.className = 'pin-dot';
+
+        wrap.appendChild(bubble);
+        wrap.appendChild(stem);
+        wrap.appendChild(dot);
+
+        wrap.addEventListener('click', (e) => {
+          e.stopPropagation();
+          selectPoi(poi.id, true);
+        });
+
+        const cssObj = new CSS2DObject(wrap);
+        cssObj.position.set(poi.x, poi.y, poi.z);
+        interiorGroup.add(cssObj);
+
+        pinObjects.set(poi.id, { poi, element: wrap, cssObj });
+      });
+
+      renderPoiList('all', '');
+    }
+
+    function renderPoiList(category, searchQuery) {
+      const poiListEl = document.getElementById('poi-list');
+      poiListEl.innerHTML = '';
+      const q = searchQuery.trim().toLowerCase();
+
+      STATION_POIS.forEach((poi) => {
+        const matchCat = category === 'all' || poi.cat === category;
+        const matchSearch =
+          !q ||
+          poi.name.toLowerCase().includes(q) ||
+          poi.en.toLowerCase().includes(q) ||
+          poi.code.toLowerCase().includes(q) ||
+          poi.zone.toLowerCase().includes(q);
+
+        const pinEntry = pinObjects.get(poi.id);
+        if (pinEntry && document.getElementById('toggle-pins').checked) {
+          pinEntry.cssObj.visible = matchCat && matchSearch;
+        }
+
+        if (!matchCat || !matchSearch) return;
+
+        const item = document.createElement('div');
+        item.className = 'poi-item' + (selectedPoiId === poi.id ? ' selected' : '');
+        item.dataset.id = poi.id;
+        item.innerHTML = `
+          <div class="poi-badge" style="background:${poi.bg};color:${poi.fg};">${poi.code}</div>
+          <div class="poi-info">
+            <h4>${poi.name}</h4>
+            <p>${poi.zone}</p>
+          </div>
+        `;
+        item.addEventListener('click', () => selectPoi(poi.id, true));
+        poiListEl.appendChild(item);
+      });
+    }
+
+    // ============================================================================
+    // 10. CAMERA FLY-TO & POI SELECTION
+    // ============================================================================
+    let camAnim = null;
+
+    function animateCameraTo(targetPos, targetLookAt, duration = 750) {
+      camAnim = {
+        startPos: camera.position.clone(),
+        endPos: targetPos.clone(),
+        startLook: controls.target.clone(),
+        endLook: targetLookAt.clone(),
+        startTime: performance.now(),
+        duration
+      };
+    }
+
+    function selectPoi(id, flyTo = true) {
+      selectedPoiId = id;
+      const entry = pinObjects.get(id);
+      if (!entry) return;
+      const { poi } = entry;
+
+      // Highlight active pin & list item
+      pinObjects.forEach((v, k) => {
+        v.element.classList.toggle('active-pin', k === id);
+      });
+      document.querySelectorAll('.poi-item').forEach((el) => {
+        el.classList.toggle('selected', el.dataset.id === id);
+      });
+
+      // Populate Detail Card
+      const card = document.getElementById('detail-card');
+      card.classList.add('visible');
+      const badge = document.getElementById('detail-badge');
+      badge.textContent = poi.code;
+      badge.style.background = poi.bg;
+      badge.style.color = poi.fg;
+
+      document.getElementById('detail-name').textContent = poi.name;
+      document.getElementById('detail-en').textContent = poi.en;
+      document.getElementById('detail-cat').textContent = poi.catLabel;
+      document.getElementById('detail-zone').textContent = poi.zone;
+      document.getElementById('detail-desc').textContent = poi.desc;
+
+      if (flyTo) {
+        const lookAt = new THREE.Vector3(poi.x, 2, poi.z);
+        const camPos = new THREE.Vector3(poi.x + 12, 48, poi.z + 58);
+        animateCameraTo(camPos, lookAt, 750);
+      }
+    }
+
+    // ============================================================================
+    // 11. WAYFINDING / 3D WALKING ROUTE GENERATOR
+    // ============================================================================
+    let routePulseMesh = null;
+
+    function drawWayfindingRoute(fromId, toId) {
+      // Clear previous route
+      while (routeGroup.children.length > 0) {
+        routeGroup.remove(routeGroup.children[0]);
+      }
+
+      const startEntry = pinObjects.get(fromId);
+      const endEntry = pinObjects.get(toId);
+      if (!startEntry || !endEntry) return;
+
+      const p1 = new THREE.Vector3(startEntry.poi.x, 1.5, startEntry.poi.z);
+      const p2 = new THREE.Vector3(endEntry.poi.x, 1.5, endEntry.poi.z);
+
+      // Route via central concourse (-20) or main corridors for realistic indoor walking
+      const waypoints = [p1];
+      if (Math.abs(p1.x - p2.x) > 35 && Math.abs(p1.z - p2.z) > 15) {
+        waypoints.push(new THREE.Vector3(-20, 1.5, p1.z));
+        waypoints.push(new THREE.Vector3(-20, 1.5, p2.z));
+      } else {
+        waypoints.push(new THREE.Vector3(p1.x, 1.5, p2.z));
+      }
+      waypoints.push(p2);
+
+      const curve = new THREE.CatmullRomCurve3(waypoints, false, 'catmullrom', 0.18);
+      const tubeGeo = new THREE.TubeGeometry(curve, 64, 0.75, 8, false);
+      const tubeMat = new THREE.MeshStandardMaterial({
+        color: '#38bdf8',
+        emissive: '#0284c7',
+        emissiveIntensity: 0.85,
+        roughness: 0.2
+      });
+      const tubeMesh = new THREE.Mesh(tubeGeo, tubeMat);
+      routeGroup.add(tubeMesh);
+
+      // Start & End glowing rings
+      [p1, p2].forEach((pt, idx) => {
+        const ring = new THREE.Mesh(
+          new THREE.RingGeometry(1.4, 2.4, 24),
+          new THREE.MeshBasicMaterial({ color: idx === 0 ? '#22c55e' : '#facc15', side: THREE.DoubleSide })
+        );
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.set(pt.x, 1.4, pt.z);
+        routeGroup.add(ring);
+      });
+
+      // Moving indicator sphere along the route
+      const walker = new THREE.Mesh(
+        new THREE.SphereGeometry(1.3, 16, 16),
+        new THREE.MeshBasicMaterial({ color: '#facc15' })
+      );
+      routeGroup.add(walker);
+      routePulseMesh = { mesh: walker, curve, t: 0 };
+
+      // Calculate approximate walking distance & time (1 unit ~ 2.4 meters)
+      const distMeters = Math.round(curve.getLength() * 2.4);
+      const mins = Math.max(1, Math.round(distMeters / 75));
+      document.getElementById('route-distance').textContent = `~${distMeters} ม. (${mins} นาที)`;
+
+      // Focus camera to frame both points
+      const mid = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
+      animateCameraTo(new THREE.Vector3(mid.x, 95, mid.z + 115), mid, 800);
+    }
+
+    // ============================================================================
+    // 11. VIEW MODES & UI CONTROLS
+    // ============================================================================
+    let targetWallScaleY = 1.0;
+
+    function setViewMode(mode) {
+      document.querySelectorAll('.mode-btn[data-mode]').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.mode === mode);
+      });
+
+      if (mode === 'interior') {
+        animateCameraTo(new THREE.Vector3(0, 125, 145), new THREE.Vector3(0, 2, 5));
+      } else if (mode === 'top') {
+        animateCameraTo(new THREE.Vector3(0, 215, 4), new THREE.Vector3(0, 0, 2));
+      } else if (mode === 'west') {
+        animateCameraTo(new THREE.Vector3(-68, 78, 95), new THREE.Vector3(-68, 2, -5));
+      } else if (mode === 'east') {
+        animateCameraTo(new THREE.Vector3(62, 78, 95), new THREE.Vector3(62, 2, -5));
+      }
+    }
+
+    function bindEvents() {
+      // View Mode Switcher Buttons
+      document.querySelectorAll('.mode-btn[data-mode]').forEach((btn) => {
+        btn.addEventListener('click', () => setViewMode(btn.dataset.mode));
+      });
+
+      // Wall Height Slider
+      const sliderWall = document.getElementById('slider-wall-height');
+      sliderWall.addEventListener('input', (e) => {
+        targetWallScaleY = parseFloat(e.target.value) / 100;
+        document.getElementById('val-wall-height').textContent = `${e.target.value}%`;
+      });
+
+      // Toggle 3D Pins
+      document.getElementById('toggle-pins').addEventListener('change', (e) => {
+        const show = e.target.checked;
+        pinObjects.forEach((v) => { v.cssObj.visible = show; });
+      });
+
+      // Toggle 2D Map Texture Overlay
+      document.getElementById('toggle-map-overlay').addEventListener('change', (e) => {
+        if (mapOverlayMesh) mapOverlayMesh.visible = e.target.checked;
+      });
+
+      // Toggle Traffic Animation
+      document.getElementById('toggle-traffic').addEventListener('change', (e) => {
+        trafficGroup.visible = e.target.checked;
+      });
+
+      // Reset Camera
+      document.getElementById('btn-reset-cam').addEventListener('click', () => {
+        setViewMode('interior');
+      });
+
+      // Search & Category Filter
+      let activeCat = 'all';
+      const searchInput = document.getElementById('poi-search');
+      searchInput.addEventListener('input', () => {
+        renderPoiList(activeCat, searchInput.value);
+      });
+
+      document.querySelectorAll('#category-chips .chip').forEach((chip) => {
+        chip.addEventListener('click', () => {
+          document.querySelectorAll('#category-chips .chip').forEach((c) => c.classList.remove('active'));
+          chip.classList.add('active');
+          activeCat = chip.dataset.cat;
+          renderPoiList(activeCat, searchInput.value);
+        });
+      });
+
+      // Sidebar Collapse / Expand
+      const sidebar = document.getElementById('left-sidebar');
+      document.getElementById('btn-collapse-sidebar').addEventListener('click', () => {
+        sidebar.classList.add('collapsed');
+      });
+      document.getElementById('btn-expand-sidebar').addEventListener('click', () => {
+        sidebar.classList.remove('collapsed');
+      });
+
+      // Detail Card Actions
+      document.getElementById('detail-close').addEventListener('click', () => {
+        document.getElementById('detail-card').classList.remove('visible');
+      });
+      document.getElementById('btn-focus-here').addEventListener('click', () => {
+        if (selectedPoiId) selectPoi(selectedPoiId, true);
+      });
+      document.getElementById('btn-route-here').addEventListener('click', () => {
+        if (!selectedPoiId) return;
+        const fromId = document.getElementById('route-from').value;
+        document.getElementById('route-to').value = selectedPoiId;
+        drawWayfindingRoute(fromId, selectedPoiId);
+      });
+
+      // Wayfinding Buttons
+      document.getElementById('btn-draw-route').addEventListener('click', () => {
+        const fromId = document.getElementById('route-from').value;
+        const toId = document.getElementById('route-to').value;
+        drawWayfindingRoute(fromId, toId);
+      });
+      document.getElementById('btn-clear-route').addEventListener('click', () => {
+        while (routeGroup.children.length > 0) routeGroup.remove(routeGroup.children[0]);
+        routePulseMesh = null;
+        document.getElementById('route-distance').textContent = '';
+      });
+
+      // Reference Images Modal
+      const refModal = document.getElementById('ref-modal');
+      document.getElementById('btn-open-ref').addEventListener('click', () => refModal.classList.add('open'));
+      document.getElementById('btn-close-ref').addEventListener('click', () => refModal.classList.remove('open'));
+      refModal.addEventListener('click', (e) => {
+        if (e.target === refModal) refModal.classList.remove('open');
+      });
+
+      // Window Resize
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        labelRenderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    }
+
+    // ============================================================================
+    // 12. INITIALIZE & ANIMATION LOOP
+    // ============================================================================
+    buildEnvironment();
+    buildInteriorFloorPlan();
+    buildTraffic();
+    buildInteractivePins();
+    bindEvents();
+
+    function animate(now) {
+      requestAnimationFrame(animate);
+
+      // Smooth camera transition
+      if (camAnim) {
+        const t = Math.min(1, (now - camAnim.startTime) / camAnim.duration);
+        const ease = 1 - Math.pow(1 - t, 3);
+        camera.position.lerpVectors(camAnim.startPos, camAnim.endPos, ease);
+        controls.target.lerpVectors(camAnim.startLook, camAnim.endLook, ease);
+        if (t >= 1) camAnim = null;
+      }
+
+      // Smoothly interpolate wall height scale
+      wallsGroup.scale.y += (targetWallScaleY - wallsGroup.scale.y) * 0.12;
+
+      // Animate drop-off cars
+      if (trafficGroup.visible) {
+        animatedVehicles.forEach((v) => {
+          v.mesh.position.x += v.speed * v.dir;
+          if (v.dir > 0 && v.mesh.position.x > v.maxX) v.mesh.position.x = v.minX;
+          if (v.dir < 0 && v.mesh.position.x < v.minX) v.mesh.position.x = v.maxX;
+        });
+      }
+
+      // Animate Wayfinding pulse along route
+      if (routePulseMesh) {
+        routePulseMesh.t = (routePulseMesh.t + 0.0045) % 1;
+        const pt = routePulseMesh.curve.getPointAt(routePulseMesh.t);
+        routePulseMesh.mesh.position.copy(pt);
+      }
+
+      controls.update();
+      renderer.render(scene, camera);
+      labelRenderer.render(scene, camera);
+    }
+
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>
