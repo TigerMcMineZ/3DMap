@@ -42,6 +42,14 @@
       z-index: 1;
     }
 
+    #canvas-container.pan-mode {
+      cursor: grab;
+    }
+
+    #canvas-container.pan-mode:active {
+      cursor: grabbing;
+    }
+
     #label-container {
       position: absolute;
       inset: 0;
@@ -147,6 +155,14 @@
       color: #fff;
       border-color: rgba(125, 211, 252, 0.45);
       box-shadow: 0 4px 12px rgba(2, 132, 199, 0.4);
+    }
+
+    .mode-btn.active-pan {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: #0f172a;
+      font-weight: 700;
+      border-color: #fde047;
+      box-shadow: 0 4px 14px rgba(245, 158, 11, 0.45);
     }
 
     /* Left Sidebar: Search, Categories, POI List */
@@ -1017,8 +1033,8 @@
         border: 1px solid rgba(148, 163, 184, 0.28);
         border-radius: 14px;
         display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 4px;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 3px;
         padding: 4px;
         z-index: 40;
         box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
@@ -1029,12 +1045,12 @@
         border: none;
         color: #cbd5e1;
         border-radius: 10px;
-        font-size: 11px;
+        font-size: 10.5px;
         font-weight: 500;
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 4px;
+        gap: 3px;
         cursor: pointer;
         white-space: nowrap;
         transition: all 0.15s;
@@ -1044,6 +1060,12 @@
         background: rgba(56, 189, 248, 0.2);
         color: #38bdf8;
         font-weight: 600;
+      }
+
+      .dock-btn.active-pan {
+        background: linear-gradient(135deg, #f59e0b, #d97706);
+        color: #0f172a;
+        font-weight: 700;
       }
 
       .modal-backdrop {
@@ -1085,6 +1107,9 @@
     </div>
 
     <div class="mode-switcher">
+      <button class="mode-btn" id="btn-pan-mode" title="สลับโหมดขยำมือเพื่อคลิกซ้ายลากเลื่อนฉาก (แทนการหมุน)">
+        <span>✋</span> มือลากเลื่อน (Pan)
+      </button>
       <button class="mode-btn active" data-mode="interior" title="มุมมอง 3D ผังพื้นที่ภายในสถานีและจุดบริการทั้งหมด">
         <span>🗺️</span> มุมมอง 3D ผังภายใน (3D Floor Plan)
       </button>
@@ -1214,10 +1239,11 @@
 
   <!-- Mobile Bottom Navigation Dock (Visible only on phones/small tablets) -->
   <nav class="mobile-dock" id="mobile-dock">
+    <button class="dock-btn" id="mob-btn-pan">✋ เลื่อนฉาก</button>
     <button class="dock-btn" id="mob-btn-pois">📍 รายการป้าย</button>
     <button class="dock-btn" id="mob-btn-settings">🎛️ ตั้งค่า 3D</button>
     <button class="dock-btn active" id="mob-btn-pins">👁️ ป้ายชื่อ</button>
-    <button class="dock-btn" id="mob-btn-reset">🔄 รีเซ็ตมุมมอง</button>
+    <button class="dock-btn" id="mob-btn-reset">🔄 รีเซ็ต</button>
   </nav>
 
   <!-- Bottom Legend & Mouse Instructions -->
@@ -1824,6 +1850,7 @@
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.06;
+    controls.screenSpacePanning = false; // Pan horizontally along the floor plane
     controls.maxPolarAngle = Math.PI / 2 - 0.03;
     controls.minDistance = 30;
     controls.maxDistance = 480;
@@ -2556,6 +2583,27 @@
     // 11. VIEW MODES & UI CONTROLS
     // ============================================================================
     let targetWallScaleY = 1.0;
+    let isPanMode = false;
+
+    function setPanMode(enabled) {
+      isPanMode = enabled;
+      controls.mouseButtons.LEFT = enabled ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE;
+      controls.touches.ONE = enabled ? THREE.TOUCH.PAN : THREE.TOUCH.ROTATE;
+      container.classList.toggle('pan-mode', enabled);
+
+      const btnPan = document.getElementById('btn-pan-mode');
+      const mobBtnPan = document.getElementById('mob-btn-pan');
+      if (btnPan) {
+        btnPan.classList.toggle('active-pan', enabled);
+        btnPan.innerHTML = enabled
+          ? '<span>✊</span> กำลังใช้มือเลื่อน (คลิกสลับหมุน)'
+          : '<span>✋</span> มือลากเลื่อน (Pan)';
+      }
+      if (mobBtnPan) {
+        mobBtnPan.classList.toggle('active-pan', enabled);
+        mobBtnPan.innerHTML = enabled ? '✊ เลื่อนอยู่' : '✋ เลื่อนฉาก';
+      }
+    }
 
     function setViewMode(mode) {
       document.querySelectorAll('.mode-btn[data-mode]').forEach((btn) => {
@@ -2574,6 +2622,14 @@
     }
 
     function bindEvents() {
+      // Hand Pan Toggle Button (Top Bar & Mobile Dock)
+      document.getElementById('btn-pan-mode').addEventListener('click', () => {
+        setPanMode(!isPanMode);
+      });
+      document.getElementById('mob-btn-pan').addEventListener('click', () => {
+        setPanMode(!isPanMode);
+      });
+
       // View Mode Switcher Buttons
       document.querySelectorAll('.mode-btn[data-mode]').forEach((btn) => {
         btn.addEventListener('click', () => setViewMode(btn.dataset.mode));
