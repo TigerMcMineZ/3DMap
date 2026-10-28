@@ -338,6 +338,51 @@
       border-color: var(--accent);
     }
 
+    .poi-item.hidden-pin {
+      opacity: 0.45;
+      background: rgba(15, 23, 42, 0.4);
+    }
+
+    .poi-check {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--accent);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .bulk-pin-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .bulk-pin-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .bulk-btn {
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      color: #e2e8f0;
+      border-radius: 6px;
+      padding: 2px 8px;
+      font-size: 10.5px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .bulk-btn:hover {
+      background: rgba(56, 189, 248, 0.22);
+      border-color: rgba(56, 189, 248, 0.45);
+    }
+
     .poi-badge {
       width: 34px;
       height: 34px;
@@ -885,6 +930,13 @@
         <button class="chip" data-cat="facility">ห้องน้ำ / สิ่งอำนวยความสะดวก</button>
         <button class="chip" data-cat="zone">โซนไฮไลท์ 1-4</button>
       </div>
+      <div class="bulk-pin-bar">
+        <span id="pin-count-label">แสดงป้าย: 36 / 36</span>
+        <div class="bulk-pin-actions">
+          <button class="bulk-btn" id="btn-check-all" title="ติ๊กแสดงป้ายทั้งหมดในรายการนี้">☑️ ติ๊กทั้งหมด</button>
+          <button class="bulk-btn" id="btn-uncheck-all" title="เอาติ๊กออกเพื่อซ่อนป้ายในรายการนี้">⬜ เอาออกทั้งหมด</button>
+        </div>
+      </div>
     </div>
 
     <div class="poi-list" id="poi-list"></div>
@@ -958,7 +1010,8 @@
       </div>
       <div class="route-actions">
         <button class="btn-primary" id="btn-route-here">🚶 นำทางมายังจุดนี้</button>
-        <button class="btn-secondary" id="btn-focus-here">🔍 ซูมดูใกล้ๆ</button>
+        <button class="btn-secondary" id="btn-focus-here">🔍 ซูมดู</button>
+        <button class="btn-secondary" id="btn-toggle-this-pin" title="ซ่อนหรือแสดงป้ายหมุดนี้บนแผนที่ 3D">👁️ ซ่อนป้ายนี้</button>
       </div>
     </div>
   </div>
@@ -2020,10 +2073,45 @@
     // 9. CREATE INTERACTIVE 3D PINS & SIDEBAR UI
     // ============================================================================
     const pinObjects = new Map();
+    const enabledPinIds = new Set(STATION_POIS.map((p) => p.id));
     let selectedPoiId = null;
+    let currentCategory = 'all';
+    let currentSearchQuery = '';
+
+    function updatePinCountLabel() {
+      const label = document.getElementById('pin-count-label');
+      if (label) {
+        label.textContent = `แสดงป้าย: ${enabledPinIds.size} / ${STATION_POIS.length}`;
+      }
+      const toggleThisBtn = document.getElementById('btn-toggle-this-pin');
+      if (toggleThisBtn && selectedPoiId) {
+        const isChecked = enabledPinIds.has(selectedPoiId);
+        toggleThisBtn.textContent = isChecked ? '👁️ ซ่อนป้ายนี้' : '👁️ แสดงป้ายนี้';
+      }
+    }
+
+    function syncAllPinsVisibility() {
+      const masterShow = document.getElementById('toggle-pins').checked;
+      const q = currentSearchQuery.trim().toLowerCase();
+
+      STATION_POIS.forEach((poi) => {
+        const matchCat = currentCategory === 'all' || poi.cat === currentCategory;
+        const matchSearch =
+          !q ||
+          poi.name.toLowerCase().includes(q) ||
+          poi.en.toLowerCase().includes(q) ||
+          poi.code.toLowerCase().includes(q) ||
+          poi.zone.toLowerCase().includes(q);
+
+        const pinEntry = pinObjects.get(poi.id);
+        if (pinEntry) {
+          pinEntry.cssObj.visible = masterShow && enabledPinIds.has(poi.id) && matchCat && matchSearch;
+        }
+      });
+      updatePinCountLabel();
+    }
 
     function buildInteractivePins() {
-      const poiListEl = document.getElementById('poi-list');
       const fromSelect = document.getElementById('route-from');
       const toSelect = document.getElementById('route-to');
 
@@ -2076,6 +2164,9 @@
     }
 
     function renderPoiList(category, searchQuery) {
+      currentCategory = category;
+      currentSearchQuery = searchQuery;
+
       const poiListEl = document.getElementById('poi-list');
       poiListEl.innerHTML = '';
       const q = searchQuery.trim().toLowerCase();
@@ -2089,26 +2180,44 @@
           poi.code.toLowerCase().includes(q) ||
           poi.zone.toLowerCase().includes(q);
 
-        const pinEntry = pinObjects.get(poi.id);
-        if (pinEntry && document.getElementById('toggle-pins').checked) {
-          pinEntry.cssObj.visible = matchCat && matchSearch;
-        }
-
         if (!matchCat || !matchSearch) return;
 
+        const isChecked = enabledPinIds.has(poi.id);
         const item = document.createElement('div');
-        item.className = 'poi-item' + (selectedPoiId === poi.id ? ' selected' : '');
+        item.className =
+          'poi-item' +
+          (selectedPoiId === poi.id ? ' selected' : '') +
+          (!isChecked ? ' hidden-pin' : '');
         item.dataset.id = poi.id;
         item.innerHTML = `
+          <input type="checkbox" class="poi-check" ${isChecked ? 'checked' : ''} title="ติ๊กเพื่อแสดงหรือซ่อนป้ายนี้บนแผนที่ 3D" />
           <div class="poi-badge" style="background:${poi.bg};color:${poi.fg};">${poi.code}</div>
           <div class="poi-info">
             <h4>${poi.name}</h4>
             <p>${poi.zone}</p>
           </div>
         `;
+
+        // Checkbox click: toggle only this pin's visibility
+        const checkbox = item.querySelector('.poi-check');
+        checkbox.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (checkbox.checked) {
+            enabledPinIds.add(poi.id);
+            item.classList.remove('hidden-pin');
+          } else {
+            enabledPinIds.delete(poi.id);
+            item.classList.add('hidden-pin');
+          }
+          syncAllPinsVisibility();
+        });
+
+        // Row click: select and fly to POI
         item.addEventListener('click', () => selectPoi(poi.id, true));
         poiListEl.appendChild(item);
       });
+
+      syncAllPinsVisibility();
     }
 
     // ============================================================================
@@ -2154,6 +2263,7 @@
       document.getElementById('detail-cat').textContent = poi.catLabel;
       document.getElementById('detail-zone').textContent = poi.zone;
       document.getElementById('detail-desc').textContent = poi.desc;
+      updatePinCountLabel();
 
       if (flyTo) {
         const lookAt = new THREE.Vector3(poi.x, 2, poi.z);
@@ -2264,10 +2374,51 @@
         document.getElementById('val-wall-height').textContent = `${e.target.value}%`;
       });
 
-      // Toggle 3D Pins
-      document.getElementById('toggle-pins').addEventListener('change', (e) => {
-        const show = e.target.checked;
-        pinObjects.forEach((v) => { v.cssObj.visible = show; });
+      // Toggle 3D Pins (Master Switch)
+      document.getElementById('toggle-pins').addEventListener('change', () => {
+        syncAllPinsVisibility();
+      });
+
+      // Bulk Check All / Uncheck All in current filter
+      document.getElementById('btn-check-all').addEventListener('click', () => {
+        const q = currentSearchQuery.trim().toLowerCase();
+        STATION_POIS.forEach((poi) => {
+          const matchCat = currentCategory === 'all' || poi.cat === currentCategory;
+          const matchSearch =
+            !q ||
+            poi.name.toLowerCase().includes(q) ||
+            poi.en.toLowerCase().includes(q) ||
+            poi.code.toLowerCase().includes(q) ||
+            poi.zone.toLowerCase().includes(q);
+          if (matchCat && matchSearch) enabledPinIds.add(poi.id);
+        });
+        renderPoiList(currentCategory, currentSearchQuery);
+      });
+
+      document.getElementById('btn-uncheck-all').addEventListener('click', () => {
+        const q = currentSearchQuery.trim().toLowerCase();
+        STATION_POIS.forEach((poi) => {
+          const matchCat = currentCategory === 'all' || poi.cat === currentCategory;
+          const matchSearch =
+            !q ||
+            poi.name.toLowerCase().includes(q) ||
+            poi.en.toLowerCase().includes(q) ||
+            poi.code.toLowerCase().includes(q) ||
+            poi.zone.toLowerCase().includes(q);
+          if (matchCat && matchSearch) enabledPinIds.delete(poi.id);
+        });
+        renderPoiList(currentCategory, currentSearchQuery);
+      });
+
+      // Toggle individual pin from Detail Card
+      document.getElementById('btn-toggle-this-pin').addEventListener('click', () => {
+        if (!selectedPoiId) return;
+        if (enabledPinIds.has(selectedPoiId)) {
+          enabledPinIds.delete(selectedPoiId);
+        } else {
+          enabledPinIds.add(selectedPoiId);
+        }
+        renderPoiList(currentCategory, currentSearchQuery);
       });
 
       // Toggle 2D Map Texture Overlay
