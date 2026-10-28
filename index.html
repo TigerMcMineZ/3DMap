@@ -849,17 +849,210 @@
       color: #cbd5e1;
     }
 
+    /* Mobile Bottom Dock (Hidden on Desktop) */
+    .mobile-dock {
+      display: none;
+    }
+
+    .mobile-close-card-btn {
+      display: none;
+    }
+
     @media (max-width: 960px) {
       .left-sidebar {
-        width: 280px;
+        width: 290px;
       }
       .bottom-bar {
         left: 16px;
       }
       .right-panel {
-        top: auto;
-        bottom: 70px;
         width: 280px;
+      }
+    }
+
+    /* Mobile Phone Layout (Clean Full-Screen 3D View + Bottom Sheet Drawers) */
+    @media (max-width: 768px) {
+      .top-bar {
+        top: 8px;
+        left: 8px;
+        right: 8px;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 6px;
+      }
+
+      .brand-card {
+        padding: 7px 12px;
+        border-radius: 12px;
+        gap: 10px;
+      }
+
+      .brand-icon {
+        width: 30px;
+        height: 30px;
+        font-size: 16px;
+        border-radius: 8px;
+      }
+
+      .brand-text h1 {
+        font-size: 13px;
+      }
+
+      .brand-text p {
+        display: none;
+      }
+
+      .mode-switcher {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding: 4px;
+        border-radius: 11px;
+        gap: 4px;
+        scrollbar-width: none;
+      }
+
+      .mode-switcher::-webkit-scrollbar {
+        display: none;
+      }
+
+      .mode-btn {
+        padding: 6px 10px;
+        font-size: 11px;
+        border-radius: 8px;
+      }
+
+      /* Hide desktop sidebar toggle and desktop bottom legend bar on mobile */
+      .sidebar-toggle-btn,
+      .bottom-bar {
+        display: none !important;
+      }
+
+      /* Left Sidebar becomes a clean Bottom Sheet Drawer on Mobile */
+      .left-sidebar {
+        top: auto;
+        left: 8px;
+        right: 8px;
+        bottom: 64px;
+        width: auto;
+        height: 58vh;
+        max-height: 460px;
+        border-radius: 16px;
+        z-index: 35;
+        transform: translateY(0);
+        transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease;
+      }
+
+      .left-sidebar.collapsed {
+        transform: translateY(120%);
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      /* Right Panel & Settings Card on Mobile */
+      .right-panel {
+        top: auto;
+        left: 8px;
+        right: 8px;
+        bottom: 64px;
+        width: auto;
+        z-index: 34;
+        gap: 8px;
+      }
+
+      .control-card {
+        display: block;
+        transition: transform 0.25s ease, opacity 0.2s ease;
+      }
+
+      .control-card.mobile-hidden {
+        display: none;
+      }
+
+      .mobile-close-card-btn {
+        display: inline-block;
+      }
+
+      .detail-card {
+        padding: 12px 14px;
+        border-radius: 14px;
+      }
+
+      .detail-badge {
+        width: 36px;
+        height: 36px;
+        font-size: 14px;
+      }
+
+      .detail-title h3 {
+        font-size: 13.5px;
+      }
+
+      .detail-desc {
+        font-size: 11.5px;
+        padding: 7px 9px;
+        margin-bottom: 8px;
+      }
+
+      /* Compact 3D Pins on Mobile so they don't clutter the screen */
+      .pin-bubble {
+        padding: 2px 5px;
+        font-size: 9.5px;
+        border-radius: 6px;
+        gap: 3px;
+      }
+
+      .pin-stem {
+        height: 6px;
+      }
+
+      /* Sleek Mobile Bottom Dock */
+      .mobile-dock {
+        position: fixed;
+        bottom: 8px;
+        left: 8px;
+        right: 8px;
+        height: 48px;
+        background: rgba(15, 23, 42, 0.94);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        border-radius: 14px;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 4px;
+        padding: 4px;
+        z-index: 40;
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
+      }
+
+      .dock-btn {
+        background: transparent;
+        border: none;
+        color: #cbd5e1;
+        border-radius: 10px;
+        font-size: 11px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: all 0.15s;
+      }
+
+      .dock-btn.active {
+        background: rgba(56, 189, 248, 0.2);
+        color: #38bdf8;
+        font-weight: 600;
+      }
+
+      .modal-backdrop {
+        padding: 10px;
+      }
+
+      .modal-body {
+        grid-template-columns: 1fr;
+        padding: 12px;
       }
     }
   </style>
@@ -961,10 +1154,13 @@
 
   <!-- Right Controls & Selected POI Detail Card -->
   <div class="right-panel">
-    <div class="control-card">
+    <div class="control-card" id="control-card">
       <h3>
         <span>🎛️ ปรับแต่งการแสดงผลผัง 3D</span>
-        <button class="icon-btn" id="btn-reset-cam">รีเซ็ตมุมกล้อง</button>
+        <div style="display:flex;gap:6px;">
+          <button class="icon-btn" id="btn-reset-cam">รีเซ็ตมุมกล้อง</button>
+          <button class="icon-btn mobile-close-card-btn" id="btn-close-settings">✕ ปิด</button>
+        </div>
       </h3>
 
       <div class="slider-group">
@@ -1015,6 +1211,14 @@
       </div>
     </div>
   </div>
+
+  <!-- Mobile Bottom Navigation Dock (Visible only on phones/small tablets) -->
+  <nav class="mobile-dock" id="mobile-dock">
+    <button class="dock-btn" id="mob-btn-pois">📍 รายการป้าย</button>
+    <button class="dock-btn" id="mob-btn-settings">🎛️ ตั้งค่า 3D</button>
+    <button class="dock-btn active" id="mob-btn-pins">👁️ ป้ายชื่อ</button>
+    <button class="dock-btn" id="mob-btn-reset">🔄 รีเซ็ตมุมมอง</button>
+  </nav>
 
   <!-- Bottom Legend & Mouse Instructions -->
   <footer class="bottom-bar">
@@ -2270,6 +2474,14 @@
         const camPos = new THREE.Vector3(poi.x + 12, 48, poi.z + 58);
         animateCameraTo(camPos, lookAt, 750);
       }
+
+      // On mobile, close the POI drawer and Settings card so the user sees the 3D map and detail card clearly
+      if (window.innerWidth <= 768) {
+        document.getElementById('left-sidebar').classList.add('collapsed');
+        document.getElementById('control-card').classList.add('mobile-hidden');
+        document.getElementById('mob-btn-pois').classList.remove('active');
+        document.getElementById('mob-btn-settings').classList.remove('active');
+      }
     }
 
     // ============================================================================
@@ -2452,13 +2664,70 @@
         });
       });
 
-      // Sidebar Collapse / Expand
+      // Sidebar Collapse / Expand & Mobile Bottom Dock
       const sidebar = document.getElementById('left-sidebar');
+      const controlCard = document.getElementById('control-card');
+      const mobBtnPois = document.getElementById('mob-btn-pois');
+      const mobBtnSettings = document.getElementById('mob-btn-settings');
+      const mobBtnPins = document.getElementById('mob-btn-pins');
+      const mobBtnReset = document.getElementById('mob-btn-reset');
+
+      // Start with panels collapsed on mobile so the 3D map fills the screen cleanly
+      if (window.innerWidth <= 768) {
+        sidebar.classList.add('collapsed');
+        controlCard.classList.add('mobile-hidden');
+        camera.position.set(0, 155, 185);
+      }
+
       document.getElementById('btn-collapse-sidebar').addEventListener('click', () => {
         sidebar.classList.add('collapsed');
+        mobBtnPois.classList.remove('active');
       });
       document.getElementById('btn-expand-sidebar').addEventListener('click', () => {
         sidebar.classList.remove('collapsed');
+      });
+      document.getElementById('btn-close-settings').addEventListener('click', () => {
+        controlCard.classList.add('mobile-hidden');
+        mobBtnSettings.classList.remove('active');
+      });
+
+      // Mobile Dock Buttons
+      mobBtnPois.addEventListener('click', () => {
+        const willOpen = sidebar.classList.contains('collapsed');
+        sidebar.classList.toggle('collapsed', !willOpen);
+        mobBtnPois.classList.toggle('active', willOpen);
+        if (willOpen) {
+          controlCard.classList.add('mobile-hidden');
+          mobBtnSettings.classList.remove('active');
+          document.getElementById('detail-card').classList.remove('visible');
+        }
+      });
+
+      mobBtnSettings.addEventListener('click', () => {
+        const willOpen = controlCard.classList.contains('mobile-hidden');
+        controlCard.classList.toggle('mobile-hidden', !willOpen);
+        mobBtnSettings.classList.toggle('active', willOpen);
+        if (willOpen) {
+          sidebar.classList.add('collapsed');
+          mobBtnPois.classList.remove('active');
+          document.getElementById('detail-card').classList.remove('visible');
+        }
+      });
+
+      mobBtnPins.addEventListener('click', () => {
+        const toggleCheckbox = document.getElementById('toggle-pins');
+        toggleCheckbox.checked = !toggleCheckbox.checked;
+        mobBtnPins.classList.toggle('active', toggleCheckbox.checked);
+        syncAllPinsVisibility();
+      });
+
+      mobBtnReset.addEventListener('click', () => {
+        sidebar.classList.add('collapsed');
+        controlCard.classList.add('mobile-hidden');
+        mobBtnPois.classList.remove('active');
+        mobBtnSettings.classList.remove('active');
+        document.getElementById('detail-card').classList.remove('visible');
+        setViewMode('interior');
       });
 
       // Detail Card Actions
@@ -2480,6 +2749,10 @@
         const fromId = document.getElementById('route-from').value;
         const toId = document.getElementById('route-to').value;
         drawWayfindingRoute(fromId, toId);
+        if (window.innerWidth <= 768) {
+          sidebar.classList.add('collapsed');
+          mobBtnPois.classList.remove('active');
+        }
       });
       document.getElementById('btn-clear-route').addEventListener('click', () => {
         while (routeGroup.children.length > 0) routeGroup.remove(routeGroup.children[0]);
